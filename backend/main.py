@@ -867,12 +867,19 @@ async def health_check():
     Health check endpoint for monitoring and load balancer health tests.
     
     Used for deployment monitoring and service availability verification.
-    Returns immediately with minimal overhead.
+    Returns immediately with minimal overhead, including AI provider status.
     
     Returns:
-        dict: Service status and identification
+        dict: Service status, identification, and AI provider availability
     """
-    return {"status": "healthy", "service": "SmartHire Backend"}
+    return {
+        "status": "healthy",
+        "service": "SmartHire Backend",
+        "ai_providers": {
+            "groq": groq_client.is_available(),
+            "gemini": gemini_client.is_available()
+        }
+    }
 
 
 @app.post("/analyze-resume", response_model=EnhancedResumeAnalysisResponse)
