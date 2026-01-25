@@ -99,6 +99,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 if ENVIRONMENT == "production":
     # Production: Allow verified Vercel frontend domains and custom domains
     allowed_origins = [
+        "https://smarthire-abdullah.vercel.app",
         "https://smarthire.vercel.app",
         "https://smart-hire-app.vercel.app",
         "https://smart-hire-app-git-main-abdullah-ghaffars-projects.vercel.app",
