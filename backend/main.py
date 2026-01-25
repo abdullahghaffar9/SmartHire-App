@@ -316,12 +316,12 @@ class GroqAIClient:
             try:
                 # Initialize Groq client for API communication
                 self.client = Groq(api_key=self.api_key)
-                logger.info("Groq AI initialized successfully (Llama 3.1 70B Primary Tier)")
+                logger.info("✅ Groq AI initialized successfully (Primary Tier - Llama 3.1 70B)")
             except Exception as e:
-                logger.error(f"Failed to initialize Groq client: {e}")
+                logger.error(f"❌ Failed to initialize Groq: {e}")
                 self.api_key = None
         else:
-            logger.warning("GROQ_API_KEY not found in environment - Groq analysis unavailable")
+            logger.warning("⚠️ GROQ_API_KEY not found - Groq unavailable")
 
     def is_available(self) -> bool:
         """
