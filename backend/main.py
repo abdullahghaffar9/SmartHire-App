@@ -154,7 +154,7 @@ class EnhancedResumeAnalysisResponse(BaseModel):
 # ============================================================
 # TIER 2: GEMINI AI CLIENT - Backup Intelligent Analysis
 # ============================================================
-from google.genai import Client
+import google.generativeai as genai
 
 
 class GeminiAIClient:
@@ -176,12 +176,14 @@ class GeminiAIClient:
 
         if self.api_key:
             try:
-                # Initialize Gemini client for API communication
-                self.client = Client(api_key=self.api_key)
+                # Configure Gemini with API key for authentication
+                genai.configure(api_key=self.api_key)
+                self.client = genai.GenerativeModel('gemini-pro')
                 logger.info("Gemini AI initialized successfully (Backup Tier)")
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini client: {e}")
                 self.api_key = None
+                self.client = None
         else:
             logger.warning("GEMINI_API_KEY not found in environment - Gemini analysis unavailable")
 
@@ -190,9 +192,9 @@ class GeminiAIClient:
         Check if Gemini client is properly configured and ready to use.
         
         Returns:
-            bool: True if client is initialized, False otherwise
+            bool: True if client is initialized and API key is set, False otherwise
         """
-        return bool(self.client)
+        return bool(self.client and self.api_key)
 
     def analyze_resume(self, resume_text: str, job_description: str) -> dict:
         """
@@ -279,10 +281,7 @@ RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no explanations):
             logger.info("Sending request to Gemini API for analysis...")
 
             # Call Gemini API with structured prompt
-            response = self.client.models.generate_content(
-                model="models/gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             response_text = response.text
 
             logger.info(f"Gemini response received ({len(response_text)} characters)")
