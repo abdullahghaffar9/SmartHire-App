@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#bg-gradient)"/>
+  
+  <!-- Document/Resume icon -->
+  <rect x="30" y="25" width="35" height="45" rx="2" fill="white" opacity="0.95"/>
+  
+  <!-- Document lines -->
+  <line x1="35" y1="33" x2="55" y2="33" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="35" y1="40" x2="60" y2="40" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="35" y1="47" x2="58" y2="47" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="35" y1="54" x2="55" y2="54" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- AI Checkmark/Approval icon -->
+  <circle cx="65" cy="65" r="15" fill="#10B981" stroke="white" stroke-width="2"/>
+  <path d="M 58 65 L 62 69 L 72 59" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
