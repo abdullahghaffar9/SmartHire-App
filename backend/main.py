@@ -159,328 +159,122 @@ import google.generativeai as genai
 
 class GeminiAIClient:
     """
-    Google Gemini 2.0 Flash AI client for backup resume analysis.
-    
-    Used as secondary AI provider when Groq is unavailable.
-    Implements the same analysis interface as GroqAIClient for easy fallback.
-    
-    Attributes:
-        api_key: Google Gemini API authentication key
-        client: Initialized Gemini client instance
+    Google Gemini AI client for backup resume analysis.
+    Uses the latest google-generativeai SDK (0.8.3+)
     """
 
     def __init__(self):
         """Initialize Gemini client with API key from environment."""
         self.api_key = os.getenv("GEMINI_API_KEY")
-        self.client = None
+        self.model = None
 
         if self.api_key:
             try:
-                # Configure Gemini with API key for authentication
+                # Configure the SDK with your API key
                 genai.configure(api_key=self.api_key)
-                self.client = genai.GenerativeModel('gemini-pro')
-                logger.info("Gemini AI initialized successfully (Backup Tier - gemini-pro)")
+                
+                # Create the model instance - NO "models/" prefix needed
+                self.model = genai.GenerativeModel('gemini-pro')
+                
+                logger.info("✅ Gemini AI initialized successfully (Backup Tier - gemini-pro)")
             except Exception as e:
-                logger.error(f"Failed to initialize Gemini client: {e}")
-                self.api_key = None
-                self.client = None
+                logger.error(f"❌ Failed to initialize Gemini: {e}")
+                self.model = None
         else:
-            logger.warning("GEMINI_API_KEY not found in environment - Gemini analysis unavailable")
+            logger.warning("⚠️ GEMINI_API_KEY not found - Gemini unavailable")
 
     def is_available(self) -> bool:
-        """
-        Check if Gemini client is properly configured and ready to use.
-        
-        Returns:
-            bool: True if client is initialized and API key is set, False otherwise
-        """
-        return bool(self.client and self.api_key)
+        """Check if Gemini is ready to use."""
+        return self.model is not None
 
     def analyze_resume(self, resume_text: str, job_description: str) -> dict:
         """
-        Analyze resume against job requirements using Gemini AI.
-        
-        Falls back to keyword analysis if Gemini API call fails,
-        ensuring analysis always completes regardless of provider availability.
-        
-        Args:
-            resume_text: Extracted text from candidate resume
-            job_description: Full job description and requirements
-            
-        Returns:
-            dict containing analysis results:
-                - match_score: Integer 0-100
-                - key_strengths: List of candidate skills
-                - missing_skills: List of skill gaps
-                - summary: Professional assessment
-                - email_draft: Interview/rejection template
+        Analyze resume using Gemini AI.
+        Falls back to keyword analysis if API fails.
         """
-        # Attempt Gemini analysis first
         if self.is_available():
             try:
-                return self._analyze_with_gemini(resume_text, job_description)
-            except Exception as e:
-                logger.warning(
-                    f"Gemini API error ({type(e).__name__}): {str(e)[:100]}. "
-                    "Falling back to keyword analysis."
-                )
+                logger.info("📤 Sending request to Gemini API...")
+                
+                # Build the analysis prompt
+                prompt = f"""Analyze this resume against the job requirements and provide a structured assessment.
 
-        # Fallback to keyword-based analysis
-        return self._analyze_with_fallback(resume_text, job_description)
-
-    def _analyze_with_gemini(self, resume_text: str, job_description: str) -> dict:
-        """
-        Send resume and job description to Gemini 2.0 Flash for intelligent analysis.
-        
-        Uses a carefully crafted prompt optimized for recruiting use cases
-        with emphasis on candidate potential and transferable skills.
-        
-        Args:
-            resume_text: Extracted resume text
-            job_description: Job requirements text
-            
-        Returns:
-            dict: Parsed analysis results from Gemini
-            
-        Raises:
-            Exception: If API communication fails
-        """
-        # Limit resume length to avoid token limits (safety margin: 5000 chars)
-        resume_clipped = resume_text[:5000] if len(resume_text) > 5000 else resume_text
-
-        # Generous scoring prompt designed for recruiting context
-        prompt = f"""You are a supportive Senior Technical Recruiter evaluating candidate potential.
-
-CANDIDATE EVALUATION GUIDELINES:
-- Be generous with scoring: 50%+ skill match should score 60 or higher
-- Focus on transferable and adjacent skills
-- Ignore PDF extraction artifacts, formatting issues, and typos
-- Value soft skills like problem-solving, teamwork, communication
-- Assume positive intent when information is unclear
-- Minimum score is 30 only for completely irrelevant candidates
-
-Job Requirements:
+JOB DESCRIPTION:
 {job_description}
 
-Candidate Resume:
-{resume_clipped}
+RESUME:
+{resume_text}
 
-Provide analysis focusing on candidate potential and growth trajectory.
-
-RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no explanations):
-
+Provide your analysis in this exact JSON format:
 {{
-  "match_score": <integer 0-100, prioritize generosity>,
-  "key_strengths": [<concrete skills from resume, max 5>],
-  "missing_skills": [<areas for development, max 5>],
-  "summary": "<2-3 sentences on potential and fit>",
-  "email_draft": "<professional email - invite if score > 50, else polite decline>"
+    "match_score": <number 0-100>,
+    "key_strengths": ["strength1", "strength2", "strength3"],
+    "missing_skills": ["skill1", "skill2", "skill3"],
+    "summary": "Professional assessment of candidate fit",
+    "email_draft": "Professional email template for next steps"
 }}"""
-
-        try:
-            logger.info("Sending request to Gemini API for analysis...")
-
-            # Call Gemini API with structured prompt
-            response = self.client.generate_content(prompt)
-            response_text = response.text
-
-            logger.info(f"Gemini response received ({len(response_text)} characters)")
-
-            # Clean and parse JSON response
-            cleaned = clean_ai_response(response_text)
-            parsed = self._parse_json_response(cleaned)
-
-            # Enforce generous minimum score when candidate has demonstrated skills
-            if parsed.get("match_score", 0) < 30 and len(parsed.get("key_strengths", [])) > 0:
-                logger.info("Adjusting score upward per generous scoring policy")
-                parsed["match_score"] = 35
-
-            logger.info(f"Gemini analysis complete: match_score={parsed.get('match_score')}%")
-            return parsed
-
-        except Exception as e:
-            logger.error(f"Gemini API error ({type(e).__name__}): {str(e)}")
-            raise
+                
+                # Generate content - CORRECT way (no .models prefix!)
+                response = self.model.generate_content(prompt)
+                
+                # Extract and parse response
+                response_text = response.text.strip()
+                
+                logger.info("✅ Gemini API response received")
+                
+                # Parse JSON from response
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    analysis = json.loads(json_match.group())
+                    logger.info(f"✅ Gemini analysis successful - Match: {analysis.get('match_score', 0)}%")
+                    return analysis
+                else:
+                    raise ValueError("No JSON found in Gemini response")
+                    
+            except Exception as e:
+                logger.error(f"❌ Gemini API error: {type(e).__name__}: {str(e)[:200]}")
+                logger.warning("⚠️ Falling back to keyword analysis")
+        
+        # Fallback to keyword analysis
+        return self._analyze_with_fallback(resume_text, job_description)
 
     def _analyze_with_fallback(self, resume_text: str, job_description: str) -> dict:
         """
-        Perform intelligent keyword-based analysis as Gemini fallback.
-        
-        Uses regex patterns to extract technical skills from job description,
-        then matches them against resume. Generates personalized analysis
-        based on skill gap analysis.
-        
-        Args:
-            resume_text: Extracted resume text
-            job_description: Job requirements text
-            
-        Returns:
-            dict: Complete analysis results including score and email draft
+        Keyword-based fallback analysis when AI is unavailable.
         """
-        logger.info("Using fallback keyword-based analysis")
-
-        # Normalize text for consistent matching
+        logger.info("🔄 Using fallback keyword-based analysis")
+        
+        # Extract keywords from job description
+        common_skills = [
+            'python', 'java', 'javascript', 'react', 'node', 'sql', 'aws',
+            'docker', 'kubernetes', 'agile', 'scrum', 'leadership', 'management',
+            'communication', 'problem solving', 'teamwork', 'api', 'rest',
+            'microservices', 'devops', 'ci/cd', 'git', 'testing', 'debugging'
+        ]
+        
         resume_lower = resume_text.lower()
         job_lower = job_description.lower()
-
-        # Define comprehensive technical skill patterns
-        skill_patterns = [
-            r"\b(python|java|javascript|typescript|go|rust|c\+\+|ruby|php|swift|kotlin)\b",
-            r"\b(react|angular|vue|node\.?js|express|django|flask|fastapi|spring|laravel)\b",
-            r"\b(aws|azure|gcp|docker|kubernetes|k8s|terraform|ansible|jenkins|gitlab)\b",
-            r"\b(postgresql|mysql|mongodb|redis|elasticsearch|cassandra|dynamodb)\b",
-            r"\b(machine learning|deep learning|ai|nlp|computer vision|tensorflow|pytorch|scikit-learn)\b",
-            r"\b(rest api|graphql|grpc|microservices|serverless|event-driven)\b",
-            r"\b(git|github|gitlab|ci/cd|devops|agile|scrum|jira)\b",
-            r"\b(html|css|sass|tailwind|bootstrap|material-ui|webpack|vite)\b"
-        ]
-
-        # Extract all skills mentioned in job description
-        job_skills = set()
-        for pattern in skill_patterns:
-            matches = re.findall(pattern, job_lower)
-            job_skills.update(matches)
-
-        # Include capitalized technical terms (e.g., "AWS", "React")
-        capitalized_words = re.findall(r"\b[A-Z][A-Za-z0-9+#\.]+\b", job_description)
-        job_skills.update([w.lower() for w in capitalized_words if len(w) > 2])
-
-        # Categorize skills as found or missing in resume
-        found_skills = []
-        missing_skills = []
-
-        for skill in job_skills:
-            if skill in resume_lower or skill.replace(".", "") in resume_lower:
-                found_skills.append(skill)
-            else:
-                missing_skills.append(skill)
-
-        # Calculate match percentage
-        if len(job_skills) > 0:
-            match_score = int((len(found_skills) / len(job_skills)) * 100)
+        
+        # Find matching skills
+        matched_skills = [skill for skill in common_skills if skill in resume_lower and skill in job_lower]
+        missing_skills = [skill for skill in common_skills if skill in job_lower and skill not in resume_lower]
+        
+        # Calculate basic score
+        if len([s for s in common_skills if s in job_lower]) > 0:
+            match_score = int((len(matched_skills) / len([s for s in common_skills if s in job_lower])) * 100)
         else:
-            # Fallback to word overlap analysis
-            resume_words = set(re.findall(r"\b\w+\b", resume_lower))
-            job_words = set(re.findall(r"\b\w+\b", job_lower))
-            common_words = resume_words.intersection(job_words)
-            match_score = min(int((len(common_words) / len(job_words)) * 100), 100)
-
-        # Ensure score is in valid range
-        match_score = max(0, min(100, match_score))
-
-        # Select key strengths and missing skills for display
-        key_strengths = found_skills[:5] if found_skills else ["General background", "Relevant experience"]
-        missing_skills_display = missing_skills[:5] if missing_skills else ["No critical gaps identified"]
-
-        # Generate contextual summary based on match score
-        if match_score >= 70:
-            summary = (
-                f"Strong candidate with {len(found_skills)} matching skills including "
-                f"{', '.join(found_skills[:3])}. Demonstrates solid alignment with requirements."
-            )
-        elif match_score >= 50:
-            summary = (
-                f"Moderate fit with {len(found_skills)} relevant skills. "
-                f"Experience in {', '.join(found_skills[:2]) if found_skills else 'related areas'} "
-                f"would benefit from development in missing technical areas."
-            )
-        else:
-            summary = (
-                f"Limited alignment with {len(found_skills)} matching skills. "
-                f"Significant skill development needed in {', '.join(missing_skills[:3]) if missing_skills else 'key technical areas'}."
-            )
-
-        # Generate professional email template
-        if match_score >= 60:
-            email_draft = f"""Hello,
-
-Thank you for your interest in our position. Your background demonstrates promise 
-with relevant experience in {', '.join(found_skills[:3]) if found_skills else 'applicable areas'}.
-
-We would like to invite you for an initial interview to discuss your qualifications 
-and how your experience aligns with our team's needs.
-
-Please let us know your availability for a 30-minute call this week.
-
-Best regards,
-Hiring Team"""
-        else:
-            email_draft = """Hello,
-
-Thank you for your application and interest in our position. After careful review 
-of your qualifications, we have decided to move forward with other candidates 
-whose experience more closely matches our immediate needs.
-
-We encourage you to apply for future opportunities that align with your skillset, 
-and we wish you success in your career.
-
-Best regards,
-Hiring Team"""
-
-        logger.info(f"Fallback analysis complete: {len(found_skills)} skills matched, score={match_score}%")
-
+            match_score = 25
+        
+        logger.info(f"✅ Fallback analysis complete: {len(matched_skills)} skills matched, score={match_score}%")
+        
         return {
             "match_score": match_score,
-            "key_strengths": key_strengths,
-            "missing_skills": missing_skills_display,
-            "summary": summary,
-            "email_draft": email_draft
+            "key_strengths": matched_skills[:5] if matched_skills else ["Experience in relevant field"],
+            "missing_skills": missing_skills[:5] if missing_skills else ["No major gaps identified"],
+            "summary": f"Basic keyword analysis shows {match_score}% match based on {len(matched_skills)} matching skills.",
+            "email_draft": "Thank you for your application. We will review your qualifications and be in touch soon."
         }
 
-    @staticmethod
-    def _parse_json_response(text: str) -> dict:
-        """
-        Extract and validate JSON from AI response text.
-        
-        Handles common AI output issues like missing fields and invalid types,
-        applying sensible defaults when fields are missing.
-        
-        Args:
-            text: Response text from AI (already cleaned of markdown)
-            
-        Returns:
-            dict: Validated analysis with all required keys
-            
-        Raises:
-            ValueError: If no valid JSON found in response
-        """
-        # Find JSON object in response text
-        json_match = re.search(r"\{.*\}", text, re.DOTALL)
-
-        if not json_match:
-            logger.error(f"No JSON object found in response: {text[:200]}")
-            raise ValueError("AI response did not contain valid JSON")
-
-        json_str = json_match.group(0)
-        parsed = json.loads(json_str)
-
-        # Validate required analysis fields exist
-        required_keys = {"match_score", "missing_skills", "summary", "email_draft"}
-        missing_keys = required_keys - set(parsed.keys())
-
-        if missing_keys:
-            logger.warning(f"AI response missing keys: {missing_keys}. Using defaults.")
-            # Apply sensible defaults for missing fields
-            for key in missing_keys:
-                if key == "match_score":
-                    parsed[key] = 0
-                elif key == "missing_skills":
-                    parsed[key] = []
-                else:
-                    parsed[key] = ""
-
-        # Type validation and normalization
-        if isinstance(parsed.get("match_score"), str):
-            try:
-                parsed["match_score"] = int(parsed["match_score"])
-            except (ValueError, TypeError):
-                parsed["match_score"] = 0
-
-        # Ensure lists are actually lists
-        if not isinstance(parsed.get("missing_skills"), list):
-            parsed["missing_skills"] = [parsed.get("missing_skills", "")]
-
-        return parsed
 
 
 # ============================================================
