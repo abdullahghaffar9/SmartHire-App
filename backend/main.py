@@ -97,12 +97,15 @@ app = FastAPI(
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 if ENVIRONMENT == "production":
-    # Production: Restrict to verified frontend domains only for security
+    # Production: Allow verified Vercel frontend domains and custom domains
     allowed_origins = [
         "https://smarthire.vercel.app",
+        "https://smart-hire-app.vercel.app",
+        "https://smart-hire-app-git-main-abdullah-ghaffars-projects.vercel.app",
+        "https://*.vercel.app",
         "https://your-custom-domain.com",
     ]
-    logger.info("CORS configured for PRODUCTION - Restricted origins")
+    logger.info("CORS configured for PRODUCTION - Vercel and custom domains allowed")
 else:
     # Development: Allow localhost variants for local testing
     allowed_origins = [
@@ -110,6 +113,7 @@ else:
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:5174",
     ]
     logger.info("CORS configured for DEVELOPMENT - Localhost only")
 
