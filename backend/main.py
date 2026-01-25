@@ -178,8 +178,8 @@ class GeminiAIClient:
             try:
                 # Configure Gemini with API key for authentication
                 genai.configure(api_key=self.api_key)
-                self.client = genai.GenerativeModel('models/gemini-1.5-flash')
-                logger.info("Gemini AI initialized successfully (Backup Tier - gemini-1.5-flash)")
+                self.client = genai.GenerativeModel('gemini-pro')
+                logger.info("Gemini AI initialized successfully (Backup Tier - gemini-pro)")
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini client: {e}")
                 self.api_key = None
