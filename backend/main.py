@@ -258,18 +258,14 @@ Provide your analysis in this exact JSON format:
 
     def _analyze_with_fallback(self, resume_text: str, job_description: str) -> dict:
         """
-        SUPER-INTELLIGENT FALLBACK ANALYSIS
-        
-        This is not just keyword matching - it's a sophisticated analysis engine:
-        - Multi-dimensional skill analysis (60+ categories)
-        - Experience level detection with NLP
-        - Industry-specific keyword weighting
-        - Contextual skill matching
-        - Professional summary generation
-        - Personalized email drafting
-        - Confidence scoring
-        
-        Good enough that users won't know it's not AI!
+        Keyword-based fallback analysis engine (Tier 3).
+
+        Performs a multi-dimensional skill analysis when both Groq and
+        Gemini AI tiers are unavailable.  Covers 60+ skill categories
+        with weighted scoring, experience-level detection, industry-
+        specific keyword matching, and auto-generated summary and
+        email draft so the response format stays identical to the AI
+        tiers and the UI never has to handle a degraded mode.
         """
         
         logger.info("🔄 Using Super-Intelligent Fallback Analysis Engine")
