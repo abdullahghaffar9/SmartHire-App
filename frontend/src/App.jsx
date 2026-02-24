@@ -879,7 +879,7 @@ export default function App() {
                     </div>
                   </motion.div>
 
-                  {/* Key Strengths */}
+                  {/* Key Strengths Section - Candidate's Assets */}
                   {analysisResult.key_strengths && analysisResult.key_strengths.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -887,20 +887,27 @@ export default function App() {
                       transition={{ delay: 0.4 }}
                       className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-xl p-6 hover:border-white/40 transition-all duration-300"
                     >
+                      {/* Section header with icon */}
                       <h3 className="font-semibold mb-4 flex items-center gap-2 text-green-400">
+                        {/* TrendingUp icon: signals positive attributes */}
                         <TrendingUp className="w-5 h-5" />
                         Key Strengths
                       </h3>
+                      {/* Strengths list with staggered animation */}
                       <div className="space-y-2">
                         {analysisResult.key_strengths.map((strength, idx) => (
                           <motion.div
                             key={idx}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
+                            // Each item animates slightly after the previous one
+                            // Creates cascading effect for visual appeal
                             transition={{ delay: 0.5 + idx * 0.1 }}
                             className="flex items-start gap-3 p-2"
                           >
+                            {/* Green checkmark: indicates positive strength */}
                             <div className="pt-1 text-green-400">✓</div>
+                            {/* Strength text from AI analysis */}
                             <p className="text-slate-300 text-sm">{strength}</p>
                           </motion.div>
                         ))}
@@ -908,23 +915,27 @@ export default function App() {
                     </motion.div>
                   )}
 
-                  {/* Summary */}
+                  {/* Summary Section - AI's Overall Assessment */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
                     className="glass-card-strong rounded-xl p-6 shadow-lg hover:shadow-blue-500/10 transition-all duration-300"
                   >
+                    {/* Section header with checkmark icon */}
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      {/* CheckCircle icon: indicates verified analysis */}
                       <CheckCircle className="w-5 h-5 text-blue-400" />
                       AI Summary
                     </h3>
+                    {/* AI-generated professional summary */}
+                    {/* 2-3 sentences highlighting key points about the candidate */}
                     <p className="text-slate-300 leading-relaxed text-sm">
                       {analysisResult.summary}
                     </p>
                   </motion.div>
 
-                  {/* Missing Skills */}
+                  {/* Skills to Develop Section - Gaps & Growth Areas */}
                   {analysisResult.missing_skills && analysisResult.missing_skills.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -932,16 +943,21 @@ export default function App() {
                       transition={{ delay: 0.6 }}
                       className="glass-card-strong rounded-xl p-6 shadow-lg hover:shadow-orange-500/10 transition-all duration-300"
                     >
+                      {/* Section header with warning icon */}
                       <h3 className="font-semibold mb-4 flex items-center gap-2 text-orange-400">
+                        {/* AlertCircle icon: indicates areas needing development */}
                         <AlertCircle className="w-5 h-5" />
                         Skills to Develop
                       </h3>
+                      {/* Missing skills displayed as badges/tags */}
+                      {/* Shows candidate what they need to learn for the role */}
                       <div className="flex flex-wrap gap-2">
                         {analysisResult.missing_skills.map((skill, idx) => (
                           <motion.span
                             key={idx}
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
+                            // Staggered animation creates visual cascade
                             transition={{ delay: 0.6 + idx * 0.1 }}
                             className="px-3 py-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/40 text-orange-300 rounded-full text-xs font-semibold hover:border-orange-500/60 transition-all cursor-default"
                           >
