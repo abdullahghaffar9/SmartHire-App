@@ -49,43 +49,99 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  *
  * Displays an animated number counter that increments from 0 to a target value.
  * Used for showing match score percentages with smooth animation.
+ * Creates a visual impact when revealing analysis results.
  *
  * Props:
  *   value (number) - Target value to animate to
+ *               Range: typically 0-100 for match scores
+ *               Example: 85
+ *   
  *   duration (number) - Animation duration in seconds (default: 2)
+ *                      Controls speed of counter animation
+ *                      Example: 2 (animates over 2 seconds)
  *
- * Example:
+ * How it works:
+ *   1. Starts at count = 0 on mount
+ *   2. Uses requestAnimationFrame for smooth 60fps animation
+ *   3. Linearly interpolates from 0 to target value over duration
+ *   4. Updates state every ~16ms (at 60fps)
+ *   5. Cleans up animation frame when complete or unmounted
+ *
+ * Example Usage:
  *   <AnimatedCounter value={85} duration={2} />
- *   // Animates from 0 to 85 over 2 seconds
+ *   // Animates from 0 → 85 over 2 seconds
+ *   
+ *   <AnimatedCounter value={92} />
+ *   // Uses default 2 second duration
  */
 const AnimatedCounter = ({ value, duration = 2 }) => {
+  // Local state for animated count value
+  // Starts at 0, increments smoothly to target value
   const [count, setCount] = React.useState(0);
 
   /**
    * useEffect Hook for Animation Loop
-   * - Uses requestAnimationFrame for smooth 60fps animation
-   * - Calculates progress based on elapsed time
-   * - Cleans up animation frame on unmount
+   * 
+   * Runs animation on component mount and when value/duration change.
+   * Uses requestAnimationFrame for browser-optimized animation timing.
+   * 
+   * Animation Method:
+   *   - requestAnimationFrame: Browser asks "when would you like to animate?"
+   *   - Syncs with monitor refresh rate (typically 60fps = ~16.67ms per frame)
+   *   - More efficient than setInterval: pauses when tab not visible
+   *   - Provides timestamp parameter for precise timing
    */
   React.useEffect(() => {
+    // startTime: captured on first animation frame
+    // Used to calculate elapsed time in subsequent frames
     let startTime;
+    // animationId: returned by requestAnimationFrame
+    // Stored to cancel animation on cleanup/unmount
     let animationId;
 
+    /**
+     * Animation Function: runs on each frame
+     * @param currentTime - DOMHighResTimeStamp from browser (milliseconds since navigation start)
+     */
     const animate = (currentTime) => {
+      // On first call, capture the start time
+      // This establishes our animation timeline
       if (!startTime) startTime = currentTime;
+      
+      // Calculate elapsed time in milliseconds
       const elapsed = currentTime - startTime;
+      
+      // Calculate animation progress as 0.0 to 1.0
+      // progress = elapsed / totalDuration (in milliseconds)
+      // Math.min ensures progress never exceeds 1.0 (capped at animation end)
       const progress = Math.min(elapsed / (duration * 1000), 1);
+      
+      // Calculate current count value
+      // Linear interpolation: 0 → value over the duration
+      // Math.floor rounds down to integer (no decimals in counter)
       setCount(Math.floor(progress * value));
 
+      // Continue animation if progress < 1.0
+      // Stop when animation complete (progress >= 1.0)
       if (progress < 1) {
+        // Request next animation frame
+        // Browser will call animate() again when ready for next frame
         animationId = requestAnimationFrame(animate);
       }
     };
 
+    // Start the animation loop
+    // Browser calls animate with high-resolution timestamp
     animationId = requestAnimationFrame(animate);
+    
+    // Cleanup function: runs on unmount or dependency change
+    // Cancels animation frame if component unmounts mid-animation
+    // Prevents state updates on unmounted component (React warning)
     return () => cancelAnimationFrame(animationId);
   }, [value, duration]);
 
+  // Render the current count value
+  // Updates every ~16ms during animation
   return <span>{count}</span>;
 };
 
