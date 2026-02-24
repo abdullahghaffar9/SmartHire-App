@@ -786,12 +786,16 @@ export default function App() {
                     <p className="text-sm text-slate-400">Here's what our AI found</p>
                   </div>
 
-                  {/* Match Score Card with Animation */}
+                  {/* Match Score Card - Primary Results Display */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.3 }}
                     className={`relative group rounded-2xl backdrop-blur-xl border-2 p-8 overflow-hidden transition-all duration-300 ${
+                      // Color scheme changes based on match score
+                      // Green: 75-100 (strong candidate, recommend interview)
+                      // Yellow: 50-74 (viable candidate, consider)
+                      // Red: 0-49 (weak match, unlikely to succeed)
                       analysisResult.match_score >= 75
                         ? 'bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/30 group-hover:border-green-500/50'
                         : analysisResult.match_score >= 50
@@ -799,28 +803,38 @@ export default function App() {
                         : 'bg-gradient-to-br from-red-500/10 to-rose-500/10 border-red-500/30 group-hover:border-red-500/50'
                     }`}
                   >
+                    {/* Hover effect overlay: subtle brightness increase */}
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-white/10 to-transparent"></div>
+                    
                     <div className="relative flex flex-col items-center">
+                      {/* Section label: identifies this as the match score */}
                       <p className="text-xs sm:text-sm font-semibold tracking-widest text-slate-400 mb-6">
                         MATCH SCORE
                       </p>
+                      
+                      {/* Animated circular score display */}
                       <motion.div
                         className={`relative w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 flex items-center justify-center shadow-2xl ${
+                          // Border color matches scoring tier
                           analysisResult.match_score >= 75
                             ? 'border-green-400/40 bg-green-500/5'
                             : analysisResult.match_score >= 50
                             ? 'border-yellow-400/40 bg-yellow-500/5'
                             : 'border-red-400/40 bg-red-500/5'
                         }`}
+                        // Breathing animation: scale up and down gently
+                        // Creates pulsing effect to draw attention
                         animate={{ scale: [1, 1.05, 1] }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                       >
                         <div className="text-center">
+                          {/* Animated score number using AnimatedCounter component */}
                           <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.4 }}
                             className={`text-4xl sm:text-6xl font-black ${
+                              // Text color matches semantic meaning
                               analysisResult.match_score >= 75
                                 ? 'text-green-400'
                                 : analysisResult.match_score >= 50
@@ -828,18 +842,23 @@ export default function App() {
                                 : 'text-red-400'
                             }`}
                           >
+                            {/* AnimatedCounter: smoothly animates from 0 to final score */}
+                            {/* Creates engaging visual when results appear */}
                             <AnimatedCounter value={analysisResult.match_score} />
                           </motion.div>
+                          {/* Percent sign below score */}
                           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-medium">%</p>
                         </div>
                       </motion.div>
 
+                      {/* Recommendation and guidance based on score */}
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 }}
                         className="mt-8 text-center"
                       >
+                        {/* Status label with emoji and tier description */}
                         <p className="text-sm sm:text-base font-semibold">
                           {analysisResult.match_score >= 75
                             ? '🟢 Excellent Match'
@@ -847,6 +866,8 @@ export default function App() {
                             ? '🟡 Good Fit'
                             : '🔴 Needs Development'}
                         </p>
+                        {/* Actionable recommendation for the hiring manager */}
+                        {/* Guides next steps based on match tier */}
                         <p className="text-xs text-slate-400 mt-2">
                           {analysisResult.match_score >= 75
                             ? 'Highly recommended for interview'
