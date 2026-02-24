@@ -1380,12 +1380,13 @@ async def analyze_resume_basic(
     Simple resume text extraction endpoint (legacy/basic mode).
     
     Extracts text from PDF without AI analysis. Useful for testing or
-    integration with external analysis systems.
+    integration with external analysis systems. Can be used to validate
+    PDF extraction before running full 3-tier AI analysis.
 
     Process Flow:
-    1. Validate uploaded PDF file
-    2. Extract text from PDF
-    3. Return extracted text only (no AI analysis)
+    1. Validate uploaded PDF file and job description
+    2. Extract text from PDF using PyMuPDF
+    3. Return extracted text in structured response (no AI analysis)
 
     Args:
         file: PDF resume file (multipart/form-data)
@@ -1399,9 +1400,13 @@ async def analyze_resume_basic(
             
     Raises:
         HTTPException 400: Invalid file format or empty description
-        HTTPException 500: Unexpected processing error
+        HTTPException 500: Unexpected processing error during extraction
     """
-    # Validate file is proper PDF
+    # ============================================================
+    # STEP 1: VALIDATE FILE FORMAT
+    # ============================================================
+    
+    # Check file MIME type - only accept PDF files
     if file.content_type not in ["application/pdf", "application/x-pdf"]:
         logger.warning(f"Invalid file type: {file.content_type} for {file.filename}")
         raise HTTPException(
@@ -1409,6 +1414,7 @@ async def analyze_resume_basic(
             detail="File must be a PDF document. Uploaded file is not a valid PDF."
         )
 
+    # Validate file extension is .pdf
     if not file.filename.lower().endswith(".pdf"):
         logger.warning(f"Invalid file extension: {file.filename}")
         raise HTTPException(
@@ -1417,29 +1423,50 @@ async def analyze_resume_basic(
         )
 
     try:
-        # Validate job description
+        # ============================================================
+        # STEP 2: VALIDATE JOB DESCRIPTION
+        # ============================================================
+        
+        # Job description is required (API consistency)
+        # Although not used in this endpoint, validation ensures API contract
         if not job_description or not job_description.strip():
             raise HTTPException(
                 status_code=400,
                 detail="Job description cannot be empty or whitespace-only"
             )
 
-        # Read uploaded file into memory stream
+        # ============================================================
+        # STEP 3: READ AND LOAD PDF FILE
+        # ============================================================
+        
+        # Read entire file into memory
         file_content = await file.read()
 
+        # Validate file is not empty
         if not file_content:
             raise HTTPException(
                 status_code=400,
                 detail="Uploaded file is empty or cannot be read"
             )
 
+        # Convert bytes to BytesIO for PDF processing
         file_stream = io.BytesIO(file_content)
 
-        # Extract text from PDF
+        # ============================================================
+        # STEP 4: EXTRACT TEXT FROM PDF
+        # ============================================================
+        
+        # Parse PDF and extract text from all pages
+        # Returns cleaned, normalized text
         extracted_text = extract_text_from_pdf(file_stream, file.filename)
 
         logger.info(f"Extracted {len(extracted_text)} characters from {file.filename}")
 
+        # ============================================================
+        # STEP 5: RETURN EXTRACTED TEXT RESPONSE
+        # ============================================================
+        
+        # Build and return response with extraction results
         return ResumeAnalysisResponse(
             filename=file.filename,
             text_length=len(extracted_text),
@@ -1447,14 +1474,17 @@ async def analyze_resume_basic(
         )
 
     except HTTPException:
+        # Re-raise HTTP exceptions (already formatted for API response)
         raise
     except ValueError as e:
+        # Handle validation errors from text extraction
         logger.error(f"Validation error for {file.filename}: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail=f"Resume extraction failed: {str(e)}"
         )
     except Exception as e:
+        # Catch all other unexpected errors
         logger.error(f"Unexpected error processing {file.filename}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
@@ -1463,16 +1493,28 @@ async def analyze_resume_basic(
 
 
 # ============================================================
-# APPLICATION ENTRY POINT
+# APPLICATION ENTRY POINT & SERVER STARTUP
 # ============================================================
 
 if __name__ == "__main__":
+    # Import Uvicorn ASGI server for production-ready HTTP serving
     import uvicorn
 
-    # Run Uvicorn development server
+    # ============================================================
+    # CONFIGURE AND START UVICORN SERVER
+    # ============================================================
+    
+    # Uvicorn: ASGI server for running async FastAPI applications
+    # Production-ready alternative to development server
     uvicorn.run(
         app,
+        # Listen on all network interfaces (0.0.0.0)
+        # Allows connections from any IP address (localhost, remote machines)
         host="0.0.0.0",
+        # Server port: 8000 (standard for development)
+        # Can be overridden with PORT environment variable
         port=8000,
+        # Log level: info includes request details and important events
+        # Options: critical, error, warning, info, debug, trace
         log_level="info"
     )
