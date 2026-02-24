@@ -132,39 +132,76 @@ export default function App() {
    * Only accepts PDF files
    */
   const handleFileChange = (e) => {
+    // Get the first file from the input element
+    // Optional chaining (?.) safely handles if files array is empty
     const file = e.target.files?.[0];
+    
+    // Validate file is valid PDF before accepting
     if (file && file.type === 'application/pdf') {
       setResumeFile(file);
+      // Clear any previous errors when new file selected
       setError(null);
     } else {
+      // Show error if file type is incorrect
       setError('Please select a valid PDF file');
+      // Reset resume state on invalid file
       setResumeFile(null);
     }
   };
 
+  /**
+   * Handle drag over event on drop zone
+   * Provides visual feedback to user during drag operation
+   */
   const handleDragOver = (e) => {
+    // Prevent default drag behavior to enable drop
     e.preventDefault();
+    // Stop event from bubbling to parent elements
     e.stopPropagation();
+    // Add visual highlight to drop zone (blue border + light blue background)
+    // Uses Tailwind CSS classes for consistent styling
     dropZoneRef.current?.classList.add('border-blue-500', 'bg-blue-50');
   };
 
+  /**
+   * Handle drag leave event on drop zone
+   * Removes visual feedback when user drags away
+   */
   const handleDragLeave = (e) => {
+    // Prevent default behavior
     e.preventDefault();
+    // Stop propagation to siblings
     e.stopPropagation();
+    // Remove highlight classes when user leaves drop zone
     dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
   };
 
+  /**
+   * Handle drop event on drop zone
+   * Processes dropped files and validates them
+   */
   const handleDrop = (e) => {
+    // Prevent browser's default file handling (usually opens file)
     e.preventDefault();
+    // Prevent event from triggering parent handlers
     e.stopPropagation();
+    // Remove visual highlight immediately on drop
     dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
 
+    // Get first dropped file from dataTransfer
+    // The dropped files API is different from input files
     const file = e.dataTransfer.files?.[0];
+    
+    // Validate dropped file is PDF format
     if (file && file.type === 'application/pdf') {
+      // Accept valid PDF files
       setResumeFile(file);
+      // Clear previous errors
       setError(null);
     } else {
+      // Reject non-PDF files with user-friendly error message
       setError('Please drop a valid PDF file');
+      // Reset resume state
       setResumeFile(null);
     }
   };
@@ -177,42 +214,65 @@ export default function App() {
    * Submit resume and job description for AI analysis
    * Sends multipart form data to backend
    * Handles loading states and error reporting
+   * Uses async/await for clean promise handling
    */
   const analyzeCandidate = async () => {
+    // Validate required inputs before proceeding
+    // Both resume file and job description are mandatory
     if (!resumeFile || !jobDescription.trim()) {
+      // Use trim() to reject whitespace-only job descriptions
       setError('Please upload a resume and enter a job description');
       return;
     }
 
+    // Set loading state to show spinner/disable button
     setLoading(true);
+    // Clear any previous errors from earlier attempts
     setError(null);
 
     try {
+      // Create FormData for multipart/form-data submission
+      // Required for file uploads with modern Fetch/Axios APIs
       const formData = new FormData();
+      // Append file object (browser handles serialization)
       formData.append('file', resumeFile);
+      // Append job description text field
       formData.append('job_description', jobDescription);
 
       // Send to backend API with proper content-type for file upload
+      // axios.post automatically sets Content-Type when FormData is used
+      // Backend endpoint expects multipart/form-data
       const response = await axios.post(
         `${API_URL}/analyze-resume`,
         formData,
         {
           headers: {
+            // Explicitly set multipart/form-data content type
+            // Axios includes boundary automatically when FormData is detected
             'Content-Type': 'multipart/form-data',
           },
         }
       );
 
+      // Extract and store analysis results from successful response
+      // response.data.ai_analysis contains: match_score, key_strengths, etc
       setAnalysisResult(response.data.ai_analysis);
+      // Clear any error messages on success
       setError(null);
     } catch (err) {
+      // Log error to browser console for debugging
       console.error('Error:', err);
+      // Show user-friendly error message
+      // Try backend error message first, fall back to generic message
       setError(
         err.response?.data?.detail ||
         'Failed to analyze resume. Please try again.'
       );
+      // Clear previous analysis result on error
       setAnalysisResult(null);
     } finally {
+      // Always reset loading state, regardless of success/failure
+      // finally block executes in both success and error cases
       setLoading(false);
     }
   };
@@ -224,28 +284,54 @@ export default function App() {
   /**
    * Copy email draft to clipboard
    * Shows confirmation message for 2 seconds
+   * Uses modern Clipboard API for secure copying
    */
   const copyToClipboard = () => {
+    // Validate that email draft exists before copying
     if (analysisResult?.email_draft) {
+      // Use modern async Clipboard API (supported in all modern browsers)
+      // More secure than deprecated document.execCommand('copy')
+      // Automatically handles HTML escaping and special characters
       navigator.clipboard.writeText(analysisResult.email_draft);
+      // Show visual feedback to user: "Copied!" message appears
       setCopied(true);
+      // Auto-hide the confirmation message after 2 seconds
+      // setTimeout returns ID for cleanup (though we don't cancel it here)
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
+  /**
+   * Determine text color based on match score
+   * Green for high scores (75+), yellow for medium (50+), red for low
+   * Used for visual match score indicator
+   */
   const getMatchScoreColor = (score) => {
+    // Apply semantic color coding: green = good, yellow = okay, red = poor
     if (score >= 75) return 'text-green-500';
     if (score >= 50) return 'text-yellow-500';
     return 'text-red-500';
   };
 
+  /**
+   * Determine background color based on match score
+   * Subtle colored background for match score display
+   * Uses low opacity (10%) for visual hierarchy
+   */
   const getMatchScoreBgColor = (score) => {
+    // Return Tailwind background color with low opacity
+    // bg-XXX-500/10 = 10% opacity for subtle background
     if (score >= 75) return 'bg-green-500/10';
     if (score >= 50) return 'bg-yellow-500/10';
     return 'bg-red-500/10';
   };
 
+  /**
+   * Determine border color based on match score
+   * Used for border highlighting on match score cards
+   */
   const getMatchScoreBorderColor = (score) => {
+    // Return Tailwind border color matching the semantic meaning
     if (score >= 75) return 'border-green-500';
     if (score >= 50) return 'border-yellow-500';
     return 'border-red-500';
