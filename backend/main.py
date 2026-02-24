@@ -3,31 +3,39 @@ SmartHire Backend API
 =====================
 
 A production-ready FastAPI service for AI-powered resume analysis and candidate
-evaluation. Implements a 3-tier AI analysis system with intelligent failover.
+evaluation. Implements a 3-tier AI analysis system with intelligent failover,
+ensuring analysis results are always available even when upstream AI providers
+are unavailable or rate-limited.
 
 Architecture:
-    Tier 1: Groq (Llama 3.1 70B) - Ultra-fast LPU inference, primary analysis
-    Tier 2: Google Gemini 2.0 Flash - Backup AI with quality fallback
-    Tier 3: Keyword Analysis - Always-available fallback for reliability
+    Tier 1: Groq (Llama 3.1 70B)       - Ultra-fast LPU inference, primary analysis
+    Tier 2: Google Gemini 2.0 Flash     - Backup AI with quality fallback
+    Tier 3: Keyword Analysis Engine     - Always-available fallback for reliability
+
+Failover Strategy:
+    The service attempts Tier 1 first. On failure or unavailability, it
+    automatically falls back to Tier 2, and then Tier 3. This guarantees a
+    response under all conditions, with graceful degradation of analysis depth.
 
 Features:
     - Multi-tier AI analysis with automatic provider failover
-    - PDF resume parsing and intelligent text extraction
+    - PDF resume parsing and intelligent text extraction (PyMuPDF)
     - Multi-model support (Groq, Gemini, Keyword-based)
     - Generous scoring algorithm (focuses on candidate potential)
     - Structured JSON responses for easy frontend integration
-    - Production-ready error handling and logging
+    - Production-ready error handling and structured logging
     - CORS configuration for security (environment-aware)
     - Health check endpoint for deployment monitoring
+    - Pydantic v2 response models for type-safe API contracts
 
 API Endpoints:
-    GET  /health                    - Service health check
+    GET  /health                    - Service health check and status
     POST /analyze-resume            - Full AI analysis with all tiers
-    POST /analyze-resume/basic      - Text extraction only (no AI)
+    POST /analyze-resume/basic      - Text extraction only (no AI analysis)
 
 Environment Configuration:
-    GROQ_API_KEY        - Required for Tier 1 AI analysis
-    GEMINI_API_KEY      - Optional for Tier 2 backup AI
+    GROQ_API_KEY        - Required for Tier 1 AI analysis (Groq LPU)
+    GEMINI_API_KEY      - Optional for Tier 2 backup AI (Google Gemini)
     ENVIRONMENT         - 'development' or 'production' (default: development)
     PORT                - Server port (default: 8000)
 
@@ -42,7 +50,7 @@ Requirements:
     - python-dotenv >= 1.0.0
 
 Author: Abdullah Ghaffar
-Repository: https://github.com/abdullahghaffar/SmartHire
+Repository: https://github.com/abdullahghaffar9/SmartHire-App
 License: MIT
 Version: 1.0.0
 Created: January 2026
