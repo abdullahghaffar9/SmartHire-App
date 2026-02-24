@@ -1,11 +1,20 @@
+/**
+ * tailwind.config.js - Tailwind CSS Configuration
+ *
+ * Extends the default Tailwind palette with a custom slate color scale
+ * used throughout the SmartHire UI for consistent dark-mode styling.
+ */
+
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Scan all HTML and JSX/TSX files so unused classes are purged in production
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
+      // Custom slate shades matching the app's dark UI design system
       colors: {
         slate: {
           900: '#0f172a',
@@ -22,5 +31,6 @@ export default {
       },
     },
   },
+  // No additional Tailwind plugins required
   plugins: [],
 }

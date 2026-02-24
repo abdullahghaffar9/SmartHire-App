@@ -42,10 +42,11 @@ Requirements:
     - python-dotenv >= 1.0.0
 
 Author: Abdullah Ghaffar
-Repository: https://github.com/abdullahghaffar/SmartHire
+Repository: https://github.com/abdullahghaffar9/SmartHire-App
 License: MIT
-Version: 1.0.0
+Version: 1.1.0
 Created: January 2026
+Last Updated: February 2026
 """
 
 import os
@@ -93,6 +94,10 @@ app = FastAPI(
 
 # ============================================================
 # CORS CONFIGURATION - Environment-Aware Security Settings
+#
+# Restricts cross-origin requests to known frontend domains.
+# In production only Vercel-hosted origins are whitelisted;
+# in development all localhost variants are permitted.
 # ============================================================
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
@@ -130,6 +135,9 @@ app.add_middleware(
 
 # ============================================================
 # PYDANTIC RESPONSE MODELS - Type-Safe API Responses
+#
+# These models enforce the shape of every JSON response returned
+# by the API, enabling automatic validation and OpenAPI docs.
 # ============================================================
 
 class ResumeAnalysisResponse(BaseModel):
@@ -164,8 +172,13 @@ import google.generativeai as genai
 
 class GeminiAIClient:
     """
-    Google Gemini AI client for backup resume analysis.
-    Uses the latest google-generativeai SDK (0.8.3+)
+    Google Gemini AI client for backup resume analysis (Tier 2).
+
+    Wraps the google-generativeai SDK (0.8.3+) and provides a clean
+    interface for generating structured JSON analysis from a resume
+    and job description.  If the Gemini API is unavailable or returns
+    an invalid response, the client transparently falls back to the
+    keyword-based analysis engine.
     """
 
     def __init__(self):
@@ -245,18 +258,14 @@ Provide your analysis in this exact JSON format:
 
     def _analyze_with_fallback(self, resume_text: str, job_description: str) -> dict:
         """
-        SUPER-INTELLIGENT FALLBACK ANALYSIS
-        
-        This is not just keyword matching - it's a sophisticated analysis engine:
-        - Multi-dimensional skill analysis (60+ categories)
-        - Experience level detection with NLP
-        - Industry-specific keyword weighting
-        - Contextual skill matching
-        - Professional summary generation
-        - Personalized email drafting
-        - Confidence scoring
-        
-        Good enough that users won't know it's not AI!
+        Keyword-based fallback analysis engine (Tier 3).
+
+        Performs a multi-dimensional skill analysis when both Groq and
+        Gemini AI tiers are unavailable.  Covers 60+ skill categories
+        with weighted scoring, experience-level detection, industry-
+        specific keyword matching, and auto-generated summary and
+        email draft so the response format stays identical to the AI
+        tiers and the UI never has to handle a degraded mode.
         """
         
         logger.info("🔄 Using Super-Intelligent Fallback Analysis Engine")

@@ -1,6 +1,6 @@
 /**
- * SmartHire Frontend Application
- * ==============================
+ * App.jsx - SmartHire Frontend Application
+ * =========================================
  *
  * A modern, responsive React application for AI-powered resume analysis.
  * Provides an intuitive interface for uploading resumes and evaluating
@@ -21,7 +21,7 @@
  *   - Vite 5+ - Build tool and dev server
  *   - TailwindCSS 3 - Utility-first CSS framework
  *   - Framer Motion - Animation library
- *   - Axios - HTTP client
+ *   - Axios - HTTP client for backend communication
  *   - Lucide React - Icon library
  *
  * Environment Configuration:
@@ -29,7 +29,7 @@
  *
  * Author: Abdullah Ghaffar
  * License: MIT
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 import React, { useState, useRef } from 'react';
@@ -47,16 +47,18 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 /**
  * AnimatedCounter Component
  *
- * Displays an animated number counter that increments from 0 to a target value.
- * Used for showing match score percentages with smooth animation.
+ * Renders a number that smoothly animates from 0 up to `value` over
+ * `duration` seconds using requestAnimationFrame for a fluid 60 fps
+ * experience.  Primarily used to display the AI match-score percentage
+ * in the results panel.
  *
  * Props:
- *   value (number) - Target value to animate to
- *   duration (number) - Animation duration in seconds (default: 2)
+ *   value    {number} - Final value to animate to
+ *   duration {number} - Animation length in seconds (default: 2)
  *
  * Example:
  *   <AnimatedCounter value={85} duration={2} />
- *   // Animates from 0 to 85 over 2 seconds
+ *   // Counts from 0 → 85 over 2 seconds
  */
 const AnimatedCounter = ({ value, duration = 2 }) => {
   const [count, setCount] = React.useState(0);
@@ -99,15 +101,16 @@ export default function App() {
   // ============================================================
   // STATE MANAGEMENT
   // ============================================================
-  
+
   /**
    * Component State Variables
-   * - resumeFile: Current selected resume file
-   * - jobDescription: Job requirements text input
-   * - loading: API request in-progress flag
-   * - error: Error message for display
-   * - analysisResult: Parsed AI analysis response
-   * - copied: Clipboard copy confirmation state
+   *
+   * resumeFile      - The PDF file selected/dropped by the user
+   * jobDescription  - Raw text of the job requirements
+   * loading         - True while an API request is in flight
+   * error           - Non-null string shown as an error banner
+   * analysisResult  - Parsed JSON returned by the backend AI analysis
+   * copied          - Briefly true after the email draft is copied
    */
   const [resumeFile, setResumeFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -172,11 +175,14 @@ export default function App() {
   // ============================================================
   // API COMMUNICATION & ANALYSIS
   // ============================================================
-  
+
   /**
-   * Submit resume and job description for AI analysis
-   * Sends multipart form data to backend
-   * Handles loading states and error reporting
+   * analyzeCandidate - Submit resume and job description for AI analysis.
+   *
+   * Builds a multipart/form-data payload containing the selected PDF and
+   * the job description text, then POSTs it to the backend /analyze-resume
+   * endpoint.  Manages the loading flag while the request is in-flight and
+   * surfaces any error message to the UI on failure.
    */
   const analyzeCandidate = async () => {
     if (!resumeFile || !jobDescription.trim()) {
