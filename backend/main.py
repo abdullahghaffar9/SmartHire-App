@@ -1172,8 +1172,8 @@ async def analyze_resume(
     Process Flow:
     1. Validate uploaded PDF file
     2. Extract text from PDF using PyMuPDF
-    3. Run AI analysis through 3-tier system
-    4. Generate structured JSON response
+    3. Run AI analysis through 3-tier system with automatic failover
+    4. Generate structured JSON response with comprehensive analysis
 
     Args:
         file: PDF resume file (multipart/form-data)
@@ -1184,13 +1184,18 @@ async def analyze_resume(
             - filename: Original uploaded file name
             - text_length: Length of extracted resume text
             - extracted_text: Full resume text from PDF
-            - ai_analysis: Structured analysis results
+            - ai_analysis: Structured analysis results with match score
             
     Raises:
-        HTTPException 400: Invalid file format or empty description
-        HTTPException 500: Unexpected processing error
+        HTTPException 400: Invalid file format or empty job description
+        HTTPException 500: Unexpected processing error during analysis
     """
-    # Validate file is proper PDF
+    # ============================================================
+    # STEP 1: VALIDATE FILE FORMAT AND CONTENT
+    # ============================================================
+    
+    # Check file MIME type: must be application/pdf or application/x-pdf
+    # Different systems may send different content types, so check both
     if file.content_type not in ["application/pdf", "application/x-pdf"]:
         logger.warning(f"Invalid file type: {file.content_type} for {file.filename}")
         raise HTTPException(
@@ -1198,6 +1203,8 @@ async def analyze_resume(
             detail="File must be a PDF document. Uploaded file is not a valid PDF."
         )
 
+    # Validate file extension matches .pdf
+    # Defense in depth: check both MIME type and file extension
     if not file.filename.lower().endswith(".pdf"):
         logger.warning(f"Invalid file extension: {file.filename}")
         raise HTTPException(
@@ -1206,70 +1213,118 @@ async def analyze_resume(
         )
 
     try:
-        # Validate job description content
+        # ============================================================
+        # STEP 2: VALIDATE JOB DESCRIPTION
+        # ============================================================
+        
+        # Job description is required and cannot be empty or whitespace only
+        # Used as critical context for AI analysis
         if not job_description or not job_description.strip():
             raise HTTPException(
                 status_code=400,
                 detail="Job description cannot be empty or whitespace-only"
             )
 
-        # Read uploaded file into memory stream
+        # ============================================================
+        # STEP 3: READ AND LOAD UPLOADED FILE
+        # ============================================================
+        
+        # Read entire file content into memory as bytes
+        # UploadFile stores as file-like object, read() is async
         file_content = await file.read()
 
+        # Validate file is not empty
         if not file_content:
             raise HTTPException(
                 status_code=400,
                 detail="Uploaded file is empty or cannot be read"
             )
 
+        # Convert bytes to BytesIO stream for PDF processing
+        # BytesIO allows in-memory file operations without disk writes
         file_stream = io.BytesIO(file_content)
 
-        # Step 1: Extract text from PDF
+        # ============================================================
+        # STEP 4: EXTRACT TEXT FROM PDF
+        # ============================================================
+        
+        # Parse PDF and extract all text from all pages
+        # Applies cleaning to normalize and fix common PDF artifacts
         extracted_text = extract_text_from_pdf(file_stream, file.filename)
 
         logger.info(f"Extracted {len(extracted_text)} characters from {file.filename}")
 
-        # Step 2: Run 3-tier AI analysis with automatic failover
+        # ============================================================
+        # STEP 5: RUN 3-TIER AI ANALYSIS WITH AUTOMATIC FAILOVER
+        # ============================================================
+        
+        # Implement intelligent fallback: try Groq first, then Gemini, then keyword
+        # This ensures we always return analysis even if primary AI unavailable
         logger.info(f"Starting 3-tier AI analysis for {file.filename}")
 
         ai_result = None
         ai_source = None
 
-        # Tier 1: Groq (Ultra-fast primary tier)
+        # ============================================================
+        # TIER 1: GROQ - ULTRA-FAST PRIMARY ANALYSIS
+        # ============================================================
+        
+        # Check if Groq client is configured and available
+        # Groq uses custom LPU hardware for extremely fast inference
+        # Typically completes in under 2 seconds for high-quality analysis
         if groq_client.is_available():
             try:
                 logger.info("Tier 1: Attempting Groq (Llama 3.1 70B - Ultra-Fast LPU)")
+                # Send resume and job description to Groq for analysis
                 ai_result = groq_client.analyze_resume(extracted_text, job_description)
                 ai_source = "Groq (Primary - Llama 3.1 70B)"
                 logger.info(f"Success: {ai_source}")
             except Exception as e:
+                # Log failure but continue to next tier
+                # Groq failures expected in some cases: API limits, network issues, etc
                 logger.warning(f"Groq failed ({type(e).__name__}): {str(e)[:100]}")
                 ai_result = None
         else:
             logger.warning("Groq not available - proceeding to Tier 2")
 
-        # Tier 2: Gemini (High-quality backup tier)
+        # ============================================================
+        # TIER 2: GEMINI - HIGH-QUALITY BACKUP ANALYSIS
+        # ============================================================
+        
+        # If Tier 1 failed or was unavailable, try Google Gemini 2.0 Flash
+        # Used only if Groq unavailable or failed
+        # Gemini provides excellent quality but may be slower than Groq
         if ai_result is None and gemini_client.is_available():
             try:
                 logger.info("Tier 2: Attempting Gemini 2.0 Flash (Backup AI)")
+                # Send to Gemini API for analysis
                 ai_result = gemini_client.analyze_resume(extracted_text, job_description)
                 ai_source = "Gemini 2.0 Flash (Backup)"
                 logger.info(f"Success: {ai_source}")
             except Exception as e:
+                # Log failure but continue to final tier
+                # Gemini failures unlikely but possible API errors
                 logger.warning(f"Gemini failed ({type(e).__name__}): {str(e)[:100]}")
                 ai_result = None
 
-        # Tier 3: Keyword analysis (Always-available fallback)
+        # ============================================================
+        # TIER 3: KEYWORD ANALYSIS - ALWAYS-AVAILABLE FALLBACK
+        # ============================================================
+        
+        # Final fallback: if both AI providers failed, use intelligent keyword analysis
+        # This ensures we ALWAYS return viable analysis, even without external APIs
+        # Intelligent fallback includes: skill matching, experience detection, scoring
         if ai_result is None:
             try:
                 logger.info("Tier 3: Using Keyword Analysis (Always-Available Fallback)")
+                # Use GeminiAIClient's sophisticated fallback analysis (no API call needed)
                 fallback_client = GeminiAIClient()
                 ai_result = fallback_client._analyze_with_fallback(extracted_text, job_description)
                 ai_source = "Keyword Analysis (Tier 3 Fallback)"
                 logger.info(f"Success: {ai_source}")
             except Exception as e:
                 logger.error(f"All tiers failed: {str(e)}")
-                # Return safe default response
+                # Return safe default response if all systems fail
                 ai_result = {
                     "match_score": 0,
                     "key_strengths": [],
