@@ -132,15 +132,78 @@ app.add_middleware(
 # PYDANTIC RESPONSE MODELS - Type-Safe API Responses
 # ============================================================
 
+# These models define the API contract between frontend and backend.
+# Pydantic automatically validates responses and generates OpenAPI/Swagger docs.
+# Type hints provide autocomplete and type checking for frontend developers.
+
 class ResumeAnalysisResponse(BaseModel):
-    """Response model for basic resume text extraction endpoint."""
+    """
+    Response model for basic resume text extraction endpoint.
+    
+    Used by: GET /analyze-resume/basic
+    
+    This response contains ONLY the extracted text from PDF,
+    no AI analysis. Useful for testing or integration with external AI systems.
+    
+    Attributes:
+        filename (str): Original uploaded PDF file name
+                       Example: "John_Doe_Resume.pdf"
+        
+        text_length (int): Number of characters in extracted resume text.
+                          Useful for tracking extraction quality and completeness.
+                          Example: 5250
+        
+        extracted_text (str): Full resume text extracted from PDF.
+                             All pages concatenated with preserved structure.
+                             Example: "John Doe\\n... [full resume text] ...\\n"
+    """
     filename: str
     text_length: int
     extracted_text: str
 
 
 class AIAnalysisResult(BaseModel):
-    """Structured AI analysis results from any AI provider."""
+    """
+    Structured AI analysis results from any AI provider.
+    
+    This model represents the core analysis output. Can come from:
+    - Groq (Tier 1): Ultra-fast LPU inference
+    - Gemini (Tier 2): Backup high-quality AI
+    - Keyword Analysis (Tier 3): Always-available fallback
+    
+    The API returns same structure regardless of which provider generated it.
+    Frontend can process the analysis without knowing the AI source.
+    
+    Attributes:
+        match_score (int): 0-100 score indicating candidate suitability for the role.
+                          Scoring philosophy: generous, emphasizes potential.
+                          - 75-100: Strong candidate (invite to interview)
+                          - 50-74: Viable candidate (consider)
+                          - 30-49: Weak candidate (unlikely fit)
+                          - 0-29: Not suitable (courteous rejection)
+                          Example: 78
+        
+        key_strengths (list): Top 3-5 strengths identified in the resume.
+                             Parsed from candidate's experience and skills.
+                             Example: ["Python Programming", "FastAPI Experience", "AWS Cloud"]
+        
+        missing_skills (list): 3-5 skill gaps between resume and job requirements.
+                              Identifies what candidate would need to learn.
+                              Example: ["Kubernetes", "Advanced DevOps", "Docker"]
+        
+        summary (str): Professional 2-3 sentence assessment of candidate fit.
+                      Highlights potential and main alignments/gaps.
+                      Example: "Strong Python developer with relevant FastAPI experience. 
+                                Solid cloud background but would need to develop Kubernetes skills. 
+                                Good fit for senior backend role with growth potential."
+        
+        email_draft (str): Professional email template for next steps.
+                          Auto-generated based on match_score:
+                          - High score: Interview invitation with enthusiasm
+                          - Medium score: Conditional interest with specific focus areas
+                          - Low score: Polite rejection with constructive feedback
+                          Example: "Dear John,\\nThank you for your application..."
+    """
     match_score: int
     key_strengths: list
     missing_skills: list
@@ -149,7 +212,36 @@ class AIAnalysisResult(BaseModel):
 
 
 class EnhancedResumeAnalysisResponse(BaseModel):
-    """Complete response including both text extraction and AI analysis."""
+    """
+    Complete response including both text extraction and AI analysis.
+    
+    Used by: POST /analyze-resume (main analysis endpoint)
+    
+    This is the full response combining extraction + analysis.
+    Includes raw extracted text for transparency and full AI analysis results.
+    Allows frontend to display both extracted text and analysis together.
+    
+    Attributes:
+        filename (str): Original uploaded file name (from ResumeAnalysisResponse)
+                       Example: "Jane_Smith_Resume.pdf"
+        
+        text_length (int): Character count of extracted resume (from ResumeAnalysisResponse)
+                          Example: 6100
+        
+        extracted_text (str): Full resume text extracted from PDF
+                             This allows frontend to show the actual text that was analyzed,
+                             providing transparency to the user.
+        
+        ai_analysis (AIAnalysisResult): Nested analysis object with all scores and results.
+                                       Contains match_score, strengths, missing skills, etc.
+                                       Structure: {
+                                           "match_score": 82,
+                                           "key_strengths": [...],
+                                           "missing_skills": [...],
+                                           "summary": "...",
+                                           "email_draft": "..."
+                                       }
+    """
     filename: str
     text_length: int
     extracted_text: str
