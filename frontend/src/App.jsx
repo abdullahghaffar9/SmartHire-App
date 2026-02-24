@@ -968,38 +968,57 @@ export default function App() {
                     </motion.div>
                   )}
 
-                  {/* Email Draft */}
+                  {/* Email Draft Section - Ready-to-Send Template */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7 }}
                     className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-xl p-6 hover:border-white/40 transition-all duration-300"
                   >
+                    {/* Header with title and copy button */}
                     <div className="flex items-center justify-between mb-4">
+                      {/* Section title: identifies this as an email template */}
                       <h3 className="font-semibold">Interview Email</h3>
+                      
+                      {/* Copy to Clipboard Button */}
                       <motion.button
                         onClick={copyToClipboard}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          // Button color changes after successful copy
+                          // Green: indicates successful copy action
+                          // Blue: default, ready to copy
                           copied
                             ? 'bg-green-500/20 text-green-400 border border-green-500/40'
                             : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:border-blue-500/50'
                         }`}
                       >
+                        {/* Copy icon from lucide-react */}
                         <Copy className="w-4 h-4" />
+                        {/* Button text changes after copy: "Copy" → "Copied!" for 2 seconds */}
                         {copied ? 'Copied!' : 'Copy'}
                       </motion.button>
                     </div>
+                    
+                    {/* Email Template Textarea */}
                     <textarea
+                      // Display the AI-generated email draft
+                      // Content varies based on match score:
+                      // - High score: enthusiastic interview invitation
+                      // - Medium score: conditional interest with focus areas
+                      // - Low score: polite rejection with suggestions
                       value={analysisResult.email_draft}
+                      // Read-only: users copy, not edit (preserve AI quality)
                       readOnly
                       className="w-full h-32 sm:h-40 px-4 py-3 bg-slate-950/50 border border-white/10 rounded-lg text-slate-300 font-mono text-xs resize-none focus:outline-none"
                     />
                   </motion.div>
 
-                  {/* New Analysis Button */}
+                  {/* New Analysis Button - Reset Form */}
                   <motion.button
+                    // Reset all form state for a fresh analysis
+                    // Clears: analysis result, resume file, job description
                     onClick={() => {
                       setAnalysisResult(null);
                       setResumeFile(null);
