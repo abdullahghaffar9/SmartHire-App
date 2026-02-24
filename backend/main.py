@@ -221,8 +221,8 @@ class GeminiAIClient:
         analysis engine and returns its result instead.
 
         Args:
-            resume_text: Plain text extracted from the candidate's PDF resume.
-            job_description: The job requirements provided by the recruiter.
+            resume_text (str): Plain text extracted from the candidate's PDF resume.
+            job_description (str): The job requirements provided by the recruiter.
 
         Returns:
             A dict with keys: match_score, key_strengths, missing_skills,
@@ -258,7 +258,8 @@ Provide your analysis in this exact JSON format:
 
                 logger.info("✅ Gemini API response received")
 
-                # Extract the JSON object using a greedy regex (handles markdown fences)
+                # Extract the JSON object using a greedy DOTALL regex; works for
+                # both plain JSON responses and responses wrapped in markdown fences
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
                     analysis = json.loads(json_match.group())

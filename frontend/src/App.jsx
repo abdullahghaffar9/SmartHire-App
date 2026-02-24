@@ -158,7 +158,7 @@ export default function App() {
   /**
    * handleDragOver - Drag-over event handler for the drop zone
    *
-   * Prevents the browser's default "open file" behaviour and applies
+   * Prevents the browser's default "open file" behavior and applies
    * visual highlight classes to the drop zone element to signal that
    * a drop is accepted.
    *
