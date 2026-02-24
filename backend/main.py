@@ -946,42 +946,63 @@ def extract_text_from_pdf(file_stream: io.BytesIO, filename: str) -> str:
         ValueError: If PDF is corrupt, empty, or text extraction fails
     """
     try:
-        # Open PDF from in-memory stream
+        # Initialize PDF parser from in-memory stream
+        # PyMuPDF (fitz) supported format: 'pdf'
+        # Works with file-like objects without writing to disk
         pdf_document = fitz.open(stream=file_stream, filetype="pdf")
 
+        # Validate PDF has at least one page
         if pdf_document.page_count == 0:
             raise ValueError("PDF file contains no pages")
 
-        # Extract text from all pages
+        # Iterate through all pages and extract text content
+        # Use list to accumulate pages, handles large PDFs efficiently
         extracted_text = []
         for page_num in range(pdf_document.page_count):
             try:
+                # Get individual page from PDF document (zero-indexed)
                 page = pdf_document[page_num]
+                
+                # Extract text from page using built-in method
+                # Preserves formatting and layout information when available
                 text = page.get_text()
-                if text.strip():  # Only include pages with content
+                
+                # Only add pages with actual content (filter empty pages)
+                # strip() removes leading/trailing whitespace for check
+                if text.strip():
                     extracted_text.append(text)
             except Exception as e:
+                # Log warning but continue: some pages may be images or corrupted
+                # Important for robustness with scanned PDFs or mixed content
                 logger.warning(
                     f"Error extracting page {page_num + 1} from {filename}: {str(e)}"
                 )
                 # Continue processing remaining pages
 
+        # Cleanup: close PDF document and free memory
         pdf_document.close()
 
+        # Validate that we extracted at least some content
         if not extracted_text:
             raise ValueError("No extractable text found in PDF")
 
-        # Combine pages and clean resulting text
+        # Combine all pages into single string with newline separators
+        # Preserves some structure from original multi-page document
         full_text = "\n".join(extracted_text)
+        
+        # Apply comprehensive text cleaning to prepare for AI analysis
+        # Removes noise, normalizes whitespace, fixes common PDF artifacts
         cleaned_text = clean_text(full_text)
 
         logger.info(f"Successfully extracted {len(cleaned_text)} characters from {filename}")
         return cleaned_text
 
     except fitz.FileError as e:
+        # Handle PDF-specific file corruption errors
         logger.error(f"PDF file error for {filename}: {str(e)}")
         raise ValueError(f"Invalid or corrupt PDF file: {str(e)}")
     except Exception as e:
+        # Catch all other unexpected errors during PDF processing
         logger.error(f"Unexpected error processing {filename}: {str(e)}")
         raise ValueError(f"Error processing PDF: {str(e)}")
 
@@ -999,43 +1020,111 @@ def clean_text(text: str) -> str:
     Returns:
         Cleaned, normalized text ready for AI analysis
     """
-    # Normalize whitespace (preserve single spaces within content)
+    # ============================================================
+    # NORMALIZE WHITESPACE (Preserve meaningful spacing)
+    # ============================================================
+    
+    # Replace multiple spaces/tabs with single space
+    # Preserves semantic structure while fixing layout artifacts
+    # Pattern: [ \t]+ = one or more spaces or tabs
     text = re.sub(r"[ \t]+", " ", text)
 
-    # Fix hyphenated words split across lines (common PDF extraction issue)
+    # ============================================================
+    # FIX COMMON PDF EXTRACTION ISSUES
+    # ============================================================
+    
+    # Fix hyphenated words split across lines (e.g., "Prob-\nlem" -> "Problem")
+    # Common in PDFs with narrow columns: text broken by line width
+    # Pattern: word char, hyphen, newline, whitespace, then word char
     text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
 
-    # Normalize bullet points to consistent format
+    # ============================================================
+    # NORMALIZE BULLET POINTS AND LISTS
+    # ============================================================
+    
+    # Convert various bullet point symbols to consistent dash format
+    # Handles: •, ●, ○, ■, □, ▪, ▫ (common PDF bullet glyphs)
     text = re.sub(r"[•●○■□▪▫]", "-", text)
+    
+    # Convert asterisk bullets to consistent format
+    # Pattern: * followed by space becomes dash-space
     text = re.sub(r"\*\s+", "- ", text)
 
-    # Remove excessive punctuation
+    # ============================================================
+    # FIX EXCESSIVE PUNCTUATION (Common in OCR/bad extraction)
+    # ============================================================
+    
+    # Replace multiple periods with single period
+    # Fixes: "..." or "...." becomes "."
+    # Pattern: \.{2,} = 2 or more consecutive periods
     text = re.sub(r"\.{2,}", ".", text)
+    
+    # Replace multiple dashes with single dash
+    # Fixes: "---" or "-----" becomes "-"
+    # Pattern: -{2,} = 2 or more consecutive dashes
     text = re.sub(r"-{2,}", "-", text)
 
-    # Remove page numbers (common PDF footer patterns)
+    # ============================================================
+    # REMOVE PAGE NUMBERS (Common PDF footer/header noise)
+    # ============================================================
+    
+    # Remove lines containing only page numbers in various formats
+    # Examples: " 1 ", " 45 ", " Page 1 ", " (Page 23) "
+    # Pattern: newline, optional whitespace, one or more digits, optional whitespace, newline
     text = re.sub(r"\n\s*\d+\s*\n", "\n", text)
     text = re.sub(r"\n\s*Page\s+\d+\s*\n", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"\n\s*\(Page\s+\d+\)\s*\n", "\n", text, flags=re.IGNORECASE)
 
-    # Remove header/footer patterns
+    # ============================================================
+    # REMOVE HEADER/FOOTER PATTERNS
+    # ============================================================
+    
+    # Remove common header/footer patterns with page numbers
+    # Pattern: text+digits in isolated line (typical header format)
     text = re.sub(r"\n\s*[A-Za-z\s]+\d{1,2}\s*\n", "\n", text)
 
-    # Normalize multiple line breaks (preserve paragraph structure)
+    # ============================================================
+    # NORMALIZE LINE BREAKS (Preserve paragraph structure)
+    # ============================================================
+    
+    # Replace 3+ consecutive line breaks with exactly 2 (paragraph break)
+    # Reduces noise while preserving semantic paragraph separation
+    # Pattern: \n followed by whitespace and \n, repeated 2+ times = \n\n
     text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
 
-    # Remove line breaks within sentences
+    # ============================================================
+    # FIX BROKEN SENTENCES (Rejoin split words and sentences)
+    # ============================================================
+    
+    # Fix line breaks within middle of sentences/words
+    # If lowercase letter followed by newline then lowercase letter,
+    # they should be joined with space (broken sentence)
+    # Pattern: lowercase, literal newline, lowercase = join with space
     text = re.sub(r"([a-z])\n([a-z])", r"\1 \2", text)
 
-    # Clean individual lines
+    # ============================================================
+    # CLEAN INDIVIDUAL LINES (Remove leading/trailing whitespace)
+    # ============================================================
+    
+    # Split entire text into individual lines for line-by-line processing
     lines = text.split("\n")
+    
+    # Process each line: trim whitespace and filter empty lines
     cleaned_lines = []
     for line in lines:
+        # Remove leading and trailing whitespace from line
         line = line.strip()
-        if line:  # Keep non-empty lines only
+        
+        # Only keep lines with actual content (non-empty after stripping)
+        if line:
             cleaned_lines.append(line)
 
-    # Rejoin with normalized line breaks
+    # ============================================================
+    # REJOIN CLEANED LINES
+    # ============================================================
+    
+    # Rejoin all cleaned lines with single newlines
+    # Now we have: consistent formatting, no empty lines, proper spacing
     text = "\n".join(cleaned_lines)
 
     return text.strip()
