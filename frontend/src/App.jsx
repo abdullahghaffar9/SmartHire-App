@@ -658,7 +658,7 @@ export default function App() {
               </div>
             </motion.div>
 
-            {/* Job Description */}
+            {/* Job Description Input Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -667,22 +667,28 @@ export default function App() {
               style={{animationDelay: '1s'}}
             >
               <div className="glass-card-strong rounded-2xl p-6 sm:p-7 shadow-2xl hover:shadow-purple-500/10 transition-all duration-300">
+                {/* Label for the textarea input */}
                 <label className="block text-sm font-semibold text-white mb-3">
                   Job Description
                 </label>
+                {/* Textarea for job description input */}
                 <textarea
+                  // Controlled component: value comes from state
+                  // onChange updates state as user types
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
                   placeholder="Paste the job description, requirements, and desired qualifications..."
                   className="w-full h-40 px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-slate-500 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 transition-all resize-none backdrop-blur-sm"
                 />
               </div>
+              {/* Character counter: shows user how much text they've entered */}
+              {/* Helps users understand if description is too short */}
               <p className="text-xs text-slate-500 mt-2">
                 {jobDescription.length} characters
               </p>
             </motion.div>
 
-            {/* Error Message */}
+            {/* Error Message Display */}
             <AnimatePresence>
               {error && (
                 <motion.div
@@ -691,15 +697,21 @@ export default function App() {
                   exit={{ opacity: 0, y: -10 }}
                   className="flex gap-3 p-4 bg-red-500/10 backdrop-blur-xl border border-red-500/30 rounded-xl"
                 >
+                  {/* Alert icon from lucide-react */}
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  {/* Error message from state */}
                   <p className="text-red-400 text-sm">{error}</p>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Analyze Button */}
+            {/* Analyze Button - Triggers AI Analysis */}
             <motion.button
               onClick={analyzeCandidate}
+              // Disable button if:
+              // - Currently loading (API request in progress)
+              // - No resume file selected
+              // - Job description is empty or only whitespace
               disabled={loading || !resumeFile || !jobDescription.trim()}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -711,12 +723,14 @@ export default function App() {
             >
               {loading ? (
                 <>
+                  {/* Spinning icon during loading */}
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   >
                     <Zap className="w-5 h-5" />
                   </motion.div>
+                  {/* Loading status text */}
                   <span>Analyzing...</span>
                 </>
               ) : (
