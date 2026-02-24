@@ -1,7 +1,7 @@
 /**
  * tailwind.config.js - Tailwind CSS Configuration
  *
- * Extends the default Tailwind palette with a custom slate colour scale
+ * Extends the default Tailwind palette with a custom slate color scale
  * used throughout the SmartHire UI for consistent dark-mode styling.
  */
 
