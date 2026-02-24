@@ -101,15 +101,16 @@ export default function App() {
   // ============================================================
   // STATE MANAGEMENT
   // ============================================================
-  
+
   /**
    * Component State Variables
-   * - resumeFile: Current selected resume file
-   * - jobDescription: Job requirements text input
-   * - loading: API request in-progress flag
-   * - error: Error message for display
-   * - analysisResult: Parsed AI analysis response
-   * - copied: Clipboard copy confirmation state
+   *
+   * resumeFile      - The PDF file selected/dropped by the user
+   * jobDescription  - Raw text of the job requirements
+   * loading         - True while an API request is in flight
+   * error           - Non-null string shown as an error banner
+   * analysisResult  - Parsed JSON returned by the backend AI analysis
+   * copied          - Briefly true after the email draft is copied
    */
   const [resumeFile, setResumeFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
