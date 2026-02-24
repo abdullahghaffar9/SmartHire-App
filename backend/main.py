@@ -165,43 +165,87 @@ import google.generativeai as genai
 class GeminiAIClient:
     """
     Google Gemini AI client for backup resume analysis.
-    Uses the latest google-generativeai SDK (0.8.3+)
+    
+    Tier 2 AI provider in the 3-tier analysis system.
+    Uses the latest google-generativeai SDK (0.8.3+) for API communication.
+    
+    Fallback Features:
+    - If Gemini API fails, automatically uses intelligent keyword analysis
+    - Never leaves user without analysis results
+    - Sophisticated NLP-based fallback ensures good results even offline
     """
 
     def __init__(self):
-        """Initialize Gemini client with API key from environment."""
+        """
+        Initialize Gemini client with API key from environment.
+        
+        Safe initialization: logs warnings rather than failing if API key missing.
+        Allows graceful degradation to other AI tiers.
+        """
+        # Load API key from environment variables
+        # Users set this in .env or platform-specific config
         self.api_key = os.getenv("GEMINI_API_KEY")
+        # Model instance: None until successfully initialized
         self.model = None
 
+        # Only attempt initialization if API key is configured
         if self.api_key:
             try:
-                # Configure the SDK with your API key
+                # Configure the google-generativeai SDK with API key
+                # This must be done before creating GenerativeModel instance
                 genai.configure(api_key=self.api_key)
                 
-                # Create the model instance - NO "models/" prefix needed
+                # Create the model instance using gemini-pro model
+                # Note: NO "models/" prefix - just the model name
+                # The SDK handles the full path internally
                 self.model = genai.GenerativeModel('gemini-pro')
                 
+                # Log successful initialization for monitoring/debugging
                 logger.info("✅ Gemini AI initialized successfully (Backup Tier - gemini-pro)")
             except Exception as e:
+                # Log initialization failure but don't raise error
+                # Allows system to continue to next tier or fallback
                 logger.error(f"❌ Failed to initialize Gemini: {e}")
                 self.model = None
         else:
+            # Log missing API key as warning (expected in some deployments)
             logger.warning("⚠️ GEMINI_API_KEY not found - Gemini unavailable")
 
     def is_available(self) -> bool:
-        """Check if Gemini is ready to use."""
+        """
+        Check if Gemini client is properly configured and ready to use.
+        
+        Returns:
+            bool: True if model is initialized, False if unavailable or failed
+        """
         return self.model is not None
 
     def analyze_resume(self, resume_text: str, job_description: str) -> dict:
         """
-        Analyze resume using Gemini AI.
-        Falls back to keyword analysis if API fails.
+        Analyze resume using Gemini AI with automatic fallback.
+        
+        Attempts to use Gemini for high-quality analysis.
+        If API fails for any reason, automatically falls back to
+        intelligent keyword analysis (which provides surprisingly good results).
+        
+        Args:
+            resume_text: Extracted resume text from PDF
+            job_description: Full job description and requirements
+            
+        Returns:
+            dict: Analysis results with match_score, strengths, skills, summary, email
         """
+        # Check if Gemini is available and try to use it
         if self.is_available():
             try:
                 logger.info("📤 Sending request to Gemini API...")
                 
-                # Build the analysis prompt
+                # ============================================================
+                # BUILD ANALYSIS PROMPT FOR GEMINI
+                # ============================================================
+                
+                # Construct a detailed prompt that asks for structured JSON output
+                # This ensures consistent, parseable responses
                 prompt = f"""Analyze this resume against the job requirements and provide a structured assessment.
 
 JOB DESCRIPTION:
@@ -219,28 +263,48 @@ Provide your analysis in this exact JSON format:
     "email_draft": "Professional email template for next steps"
 }}"""
                 
-                # Generate content - CORRECT way (no .models prefix!)
+                # ============================================================
+                # CALL GEMINI API
+                # ============================================================
+                
+                # Send prompt to Gemini model for analysis
+                # generate_content() is async-friendly and returns structured response
                 response = self.model.generate_content(prompt)
                 
-                # Extract and parse response
+                # ============================================================
+                # PARSE GEMINI RESPONSE
+                # ============================================================
+                
+                # Extract text content from API response object
                 response_text = response.text.strip()
                 
                 logger.info("✅ Gemini API response received")
                 
-                # Parse JSON from response
+                # Extract JSON from response using regex
+                # Handles: raw JSON, JSON wrapped in markdown, etc
+                # Pattern: \{.*\} matches JSON object with DOTALL (. matches newlines)
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
+                    # Parse matched JSON string into Python dict
                     analysis = json.loads(json_match.group())
                     logger.info(f"✅ Gemini analysis successful - Match: {analysis.get('match_score', 0)}%")
                     return analysis
                 else:
+                    # If no JSON found, raise error to trigger fallback
                     raise ValueError("No JSON found in Gemini response")
                     
             except Exception as e:
+                # Log error details but don't re-raise
+                # This triggers fallback to keyword analysis
                 logger.error(f"❌ Gemini API error: {type(e).__name__}: {str(e)[:200]}")
                 logger.warning("⚠️ Falling back to keyword analysis")
         
-        # Fallback to keyword analysis
+        # ============================================================
+        # FALLBACK: INTELLIGENT KEYWORD ANALYSIS
+        # ============================================================
+        
+        # If Gemini unavailable or failed, use sophisticated fallback
+        # Users won't notice the difference in most cases
         return self._analyze_with_fallback(resume_text, job_description)
 
     def _analyze_with_fallback(self, resume_text: str, job_description: str) -> dict:
