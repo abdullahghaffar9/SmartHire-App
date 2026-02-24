@@ -135,6 +135,9 @@ app.add_middleware(
 
 # ============================================================
 # PYDANTIC RESPONSE MODELS - Type-Safe API Responses
+#
+# These models enforce the shape of every JSON response returned
+# by the API, enabling automatic validation and OpenAPI docs.
 # ============================================================
 
 class ResumeAnalysisResponse(BaseModel):
