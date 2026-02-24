@@ -1490,36 +1490,75 @@ async def analyze_resume(
                 }
                 ai_source = "Default (Analysis Unavailable)"
 
-        # Validate and normalize AI response
+        # ============================================================
+        # STEP 6: VALIDATE AND NORMALIZE AI RESPONSE
+        # ============================================================
+        
+        # Construct validated AIAnalysisResult from analysis dict
+        # Pydantic validates and transforms the data automatically
         ai_analysis = AIAnalysisResult(
+            # Ensure match_score is always 0-100 (clamp between min/max)
+            # max(0, ...) ensures never goes below 0
+            # min(100, ...) ensures never exceeds 100
+            # int() converts any float scores to integers
             match_score=max(0, min(100, int(ai_result.get("match_score", 0)))),
+            
+            # Extract strengths list, fallback to empty list if missing
+            # The 'or []' ensures we have a list, never None
             key_strengths=ai_result.get("key_strengths", []) or [],
+            
+            # Extract missing skills list, with same safety pattern
             missing_skills=ai_result.get("missing_skills", []) or [],
+            
+            # Extract summary text, ensure it's a string (never None)
             summary=ai_result.get("summary", "") or "",
+            
+            # Extract email draft, ensure it's a string (never None)
             email_draft=ai_result.get("email_draft", "") or ""
         )
 
+        # ============================================================
+        # STEP 7: CONSTRUCT AND RETURN FINAL RESPONSE
+        # ============================================================
+        
+        # Log successful completion with metadata
         logger.info(
             f"Analysis complete [{ai_source}] - {file.filename}: "
             f"Match={ai_analysis.match_score}%"
         )
 
+        # Build the final response object with all components
+        # Pydantic validates the structure and generates OpenAPI docs
         return EnhancedResumeAnalysisResponse(
+            # Original filename from upload
             filename=file.filename,
+            # Length of extracted text (for verification)
             text_length=len(extracted_text),
+            # Full unanalyzed text for transparency
             extracted_text=extracted_text,
+            # Nested AI analysis results from any tier
             ai_analysis=ai_analysis
         )
 
+    # ============================================================
+    # ERROR HANDLING
+    # ============================================================
+    
     except HTTPException:
+        # Re-raise HTTP exceptions already formatted for client response
+        # These were explicitly created with status codes and messages
         raise
     except ValueError as e:
+        # Handle validation errors from PDF extraction or parsing
+        # ValueError typically means bad file format or extraction failure
         logger.error(f"Validation error for {file.filename}: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail=f"Resume analysis validation failed: {str(e)}"
         )
     except Exception as e:
+        # Catch all unexpected errors
+        # exc_info=True logs full stack trace for debugging
         logger.error(f"Unexpected error processing {file.filename}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
