@@ -1026,56 +1026,121 @@ REQUIRED RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
         """
         Extract and validate JSON from Groq API response.
         
-        Handles common issues with AI-generated responses and applies
-        sensible defaults for missing fields to ensure reliable parsing.
+        Handles common issues with AI-generated responses:
+        - Markdown code blocks wrapping JSON
+        - Missing required fields
+        - Type mismatches in fields
+        - Out-of-range values
+        
+        Applies sensible defaults and type coercion to ensure
+        reliable parsing even with imperfect AI responses.
         
         Args:
-            text: Raw response text from Groq API
+            text: Raw response text from Groq API (may include markdown, comments, etc)
             
         Returns:
-            dict: Validated analysis with all required keys and correct types
+            dict: Validated analysis with guaranteed:
+                - All required keys present
+                - Correct data types
+                - Values within valid ranges
             
         Raises:
-            ValueError: If no valid JSON found in response
+            ValueError: If no valid JSON object found in response
         """
-        # Clean markdown wrappers from response
+        # ============================================================
+        # STEP 1: CLEAN MARKDOWN WRAPPERS
+        # ============================================================
+        
+        # Remove markdown code block wrappers that AI sometimes adds
+        # Pattern: ```json ... ``` or just ``` ... ```
+        # This is common when AI tries to format code nicely
         cleaned = clean_ai_response(text)
 
-        # Extract JSON object from response
+        # ============================================================
+        # STEP 2: EXTRACT JSON OBJECT FROM RESPONSE
+        # ============================================================
+        
+        # Use regex to find JSON object structure in response
+        # Pattern: \{.*\} matches any JSON object (even with newlines inside)
+        # re.DOTALL makes . match newline characters
         json_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
 
+        # Validate that we found JSON
         if not json_match:
+            # Log the problematic response for debugging
             logger.error(f"No JSON found in Groq response: {cleaned[:200]}")
             raise ValueError("Groq response did not contain valid JSON")
 
-        # Parse JSON string
+        # ============================================================
+        # STEP 3: PARSE JSON STRING TO PYTHON DICT
+        # ============================================================
+        
+        # Convert JSON string to Python dictionary
+        # json.loads() will raise JSONDecodeError if invalid JSON
         parsed = json.loads(json_match.group(0))
 
-        # Validate required analysis fields exist
+        # ============================================================
+        # STEP 4: VALIDATE REQUIRED FIELDS EXIST
+        # ============================================================
+        
+        # Define fields that must be present in every response
+        # These are the minimum required for a valid analysis
         required = {"match_score", "key_strengths", "missing_skills", "summary", "email_draft"}
+        # Find any fields that are missing from response
         missing = required - set(parsed.keys())
 
         if missing:
+            # Log warning if any fields are missing
             logger.warning(f"Groq response missing keys: {missing}. Applying defaults.")
             # Apply sensible defaults for missing fields
+            # Ensures response always has all required keys
             for key in missing:
                 if key == "match_score":
+                    # Default score: 50 (middle of range, neither good nor bad)
                     parsed[key] = 50
                 elif key in ["key_strengths", "missing_skills"]:
+                    # Default empty list: no specific strengths/gaps mentioned
                     parsed[key] = []
                 else:
+                    # Default empty string for text fields
                     parsed[key] = ""
 
-        # Type validation for match_score
+        # ============================================================
+        # STEP 5: TYPE VALIDATION FOR MATCH_SCORE
+        # ============================================================
+        
+        # Ensure match_score is valid integer in range 0-100
         try:
-            parsed["match_score"] = max(0, min(100, int(parsed.get("match_score", 50))))
+            # Get match_score, default to 50 if missing
+            score = parsed.get("match_score", 50)
+            # Convert to int (handles float scores like 82.5 → 82)
+            score = int(score)
+            # Clamp to valid range: ensure 0 <= score <= 100
+            # max(0, ...) prevents negative scores
+            # min(100, ...) prevents scores > 100
+            parsed["match_score"] = max(0, min(100, score))
         except (ValueError, TypeError):
+            # If conversion fails, use safe default
+            # ValueError: score could not convert to int (e.g., "eighty")
+            # TypeError: score is None or has no int representation
             parsed["match_score"] = 50
 
-        # Type validation for list fields
+        # ============================================================
+        # STEP 6: TYPE VALIDATION FOR LIST FIELDS
+        # ============================================================
+        
+        # Ensure key_strengths and missing_skills are always lists
         for key in ["key_strengths", "missing_skills"]:
+            # Check if field exists and is actually a list
             if not isinstance(parsed.get(key), list):
-                parsed[key] = [str(parsed[key])] if parsed.get(key) else []
+                # If it's not a list, try to convert it
+                value = parsed.get(key)
+                if value:
+                    # If value exists (e.g., string), wrap it in a list
+                    parsed[key] = [str(value)]
+                else:
+                    # If value is None/empty, use empty list
+                    parsed[key] = []
 
         return parsed
 
