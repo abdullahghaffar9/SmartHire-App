@@ -94,38 +94,82 @@ app = FastAPI(
 # ============================================================
 # CORS CONFIGURATION - Environment-Aware Security Settings
 # ============================================================
+
+# CORS (Cross-Origin Resource Sharing) controls which external domains
+# can make requests to this API from web browsers.
+# Browser security enforces CORS: blocks cross-origin requests not explicitly allowed.
+
+# Check deployment environment from environment variable
+# Affects which origins are allowed to access the API
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 if ENVIRONMENT == "production":
-    # Production: Allow verified Vercel frontend domains and custom domains
+    # ============================================================
+    # PRODUCTION CORS - Restricted to verified deployment domains
+    # ============================================================
+    
+    # In production, only allow the frontend deployment on Vercel
+    # These are the exact domains where SmartHire frontend is deployed
     allowed_origins = [
+        # Direct project domain
         "https://smarthire-abdullah.vercel.app",
+        # Alternative deployment name
         "https://smarthire.vercel.app",
+        # Another variant
         "https://smart-hire-app.vercel.app",
+        # Preview deployment URL (for PR reviews)
         "https://smart-hire-app-git-main-abdullah-ghaffars-projects.vercel.app",
+        # Wildcard for any Vercel deployed version of this project
         "https://*.vercel.app",
+        # Custom domain (if configured)
         "https://your-custom-domain.com",
     ]
     logger.info("CORS configured for PRODUCTION - Vercel and custom domains allowed")
 else:
-    # Development: Allow localhost variants for local testing
+    # ============================================================
+    # DEVELOPMENT CORS - Allow localhost for local development
+    # ============================================================
+    
+    # During development, frontend runs on local machine
+    # Need to allow localhost with various configurations
     allowed_origins = [
+        # Vite development server (default port)
         "http://localhost:5173",
+        # Local IP address
         "http://127.0.0.1:5173",
+        # Common CRA/Node development ports
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        # Alternative Vite port
         "http://localhost:5174",
     ]
     logger.info("CORS configured for DEVELOPMENT - Localhost only")
 
-# Add CORS middleware with strict HTTP method and header restrictions
+# ============================================================
+# ADD CORS MIDDLEWARE WITH SECURITY SETTINGS
+# ============================================================
+
+# CORSMiddleware: FastAPI middleware that handles CORS headers
+# Automatically responds to preflight OPTIONS requests
+# Adds necessary Access-Control headers to responses
 app.add_middleware(
     CORSMiddleware,
+    # Which domains can access this API
+    # Requests from other origins will be blocked by browser
     allow_origins=allowed_origins,
+    # Allow cookies/credentials in cross-origin requests
+    # Should be True if frontend needs to send auth cookies
     allow_credentials=True,
+    # Which HTTP methods are allowed from cross-origin requests
+    # GET: fetching data, POST: sending data, OPTIONS: preflight checks
+    # Note: DELETE, PUT, PATCH not included - additional security measure
     allow_methods=["GET", "POST", "OPTIONS"],
+    # Which HTTP headers can be sent in cross-origin requests
+    # Content-Type: required for JSON/form-data
+    # Authorization: required for auth tokens in future
     allow_headers=["Content-Type", "Authorization"],
 )
+
 
 
 # ============================================================
