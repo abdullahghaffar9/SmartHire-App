@@ -6,28 +6,37 @@
  * Provides an intuitive interface for uploading resumes and evaluating
  * candidate fit against job descriptions.
  *
+ * Data Flow:
+ *   1. Recruiter uploads a PDF resume via drag-and-drop or file picker.
+ *   2. Recruiter enters the job description in the text area.
+ *   3. On submit, the PDF and job description are sent to the FastAPI backend.
+ *   4. The backend runs 3-tier AI analysis and returns a structured JSON result.
+ *   5. The UI renders the match score, strengths, gaps, summary, and email draft.
+ *
  * Features:
- *   - Drag-and-drop PDF resume upload
+ *   - Drag-and-drop PDF resume upload with visual feedback
  *   - Real-time job description input
- *   - AI-powered resume analysis with 3-tier fallback
+ *   - AI-powered resume analysis with 3-tier fallback (Groq → Gemini → Keywords)
  *   - Animated results display with detailed scoring
  *   - Email draft generation for candidate communication
- *   - Copy-to-clipboard functionality
+ *   - Copy-to-clipboard functionality for the generated email
  *   - Responsive design (mobile, tablet, desktop)
- *   - Smooth animations and transitions
+ *   - Smooth animations and transitions via Framer Motion
  *
  * Technology Stack:
- *   - React 18 - UI framework
- *   - Vite 5+ - Build tool and dev server
- *   - TailwindCSS 3 - Utility-first CSS framework
- *   - Framer Motion - Animation library
- *   - Axios - HTTP client
- *   - Lucide React - Icon library
+ *   - React 18        - UI framework with hooks
+ *   - Vite 5+         - Build tool and HMR dev server
+ *   - TailwindCSS 3   - Utility-first CSS framework
+ *   - Framer Motion   - Declarative animation library
+ *   - Axios           - Promise-based HTTP client
+ *   - Lucide React    - Lightweight SVG icon library
  *
  * Environment Configuration:
  *   VITE_API_URL - Backend API endpoint (default: http://127.0.0.1:8000)
+ *                  Set to the deployed Railway/Render URL in production.
  *
  * Author: Abdullah Ghaffar
+ * Repository: https://github.com/abdullahghaffar9/SmartHire-App
  * License: MIT
  * Version: 1.0.0
  */
