@@ -1,6 +1,6 @@
 /**
- * SmartHire Frontend Application
- * ==============================
+ * App.jsx - SmartHire Frontend Application
+ * =========================================
  *
  * A modern, responsive React application for AI-powered resume analysis.
  * Provides an intuitive interface for uploading resumes and evaluating
@@ -21,7 +21,7 @@
  *   - Vite 5+ - Build tool and dev server
  *   - TailwindCSS 3 - Utility-first CSS framework
  *   - Framer Motion - Animation library
- *   - Axios - HTTP client
+ *   - Axios - HTTP client for backend communication
  *   - Lucide React - Icon library
  *
  * Environment Configuration:
@@ -29,7 +29,7 @@
  *
  * Author: Abdullah Ghaffar
  * License: MIT
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 import React, { useState, useRef } from 'react';
