@@ -721,13 +721,19 @@ class GroqAIClient:
         Raises:
             ValueError: If API key not configured or API call fails
         """
+        # Validate that Groq API is available before proceeding
+        # If not available, raise error to trigger fallback to Gemini or keyword analysis
         if not self.is_available():
             raise ValueError("Groq API key not configured - cannot perform analysis")
 
-        # Limit resume to manage token usage (safety margin: 6000 chars)
+        # Limit resume to manage token usage and API costs
+        # Groq processes extremely fast but we still apply reasonable limits
+        # Safety margin set to 6000 chars to keep within token budget
         resume_clipped = resume_text[:6000] if len(resume_text) > 6000 else resume_text
 
-        # Generous scoring prompt optimized for Llama 3.1 70B
+        # Generous scoring prompt optimized for Llama 3.1 70B model
+        # This prompt is specifically tuned for best results with Llama's strengths
+        # It emphasizes potential, transferable skills, and soft skills
         prompt = f"""You are an experienced Technical Recruiter evaluating candidate fit.
 
 JOB REQUIREMENTS:
@@ -759,34 +765,52 @@ REQUIRED RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
         try:
             logger.info("Sending analysis request to Groq API (Llama 3.1 70B - Ultra-Fast LPU)")
 
-            # Call Groq API with structured prompt
+            # Call Groq API with structured prompt using chat completion format
+            # The system message ensures JSON-only responses for reliable parsing
+            # We use multi-turn format even though we send one user message for consistency
             response = self.client.chat.completions.create(
+                # Llama 3.3 70B model: improved reasoning, better JSON compliance
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {
                         "role": "system",
+                        # System message sets AI behavior: return only valid JSON, no markdown
                         "content": "You are a helpful recruiter AI that returns only valid JSON responses."
                     },
                     {
                         "role": "user",
+                        # User message: the analysis prompt with resume and job description
                         "content": prompt
                     }
                 ],
-                temperature=0.7,  # Balanced creativity and consistency
-                max_tokens=1000,  # Sufficient for detailed analysis
+                # Temperature: 0.7 balances consistency with some variability
+                # Lower = more deterministic, Higher = more creative
+                # 0.7 is ideal for technical recruiting analysis
+                temperature=0.7,
+                # Max tokens: limit response to 1000 tokens for efficiency
+                # Groq's ultra-fast inference makes this quick even with limit
+                max_tokens=1000,
+                # Top P (nucleus sampling): 1.0 means all tokens are considered
+                # More precise control than temperature alone
                 top_p=1,
+                # Disable streaming since we need full response before parsing
                 stream=False
             )
 
-            # Extract response text
+            # Extract the analyzed text from response structure
+            # response.choices[0] = first (and only) response choice
+            # .message.content = the actual text content
             result_text = response.choices[0].message.content
 
             logger.info("Groq AI analysis completed (Ultra-Fast LPU Processing)")
 
-            # Parse and validate JSON response
+            # Parse response text into structured JSON object
+            # Handles potential formatting issues or code blocks in response
             analysis_result = self._parse_json_response(result_text)
 
-            # Enforce generous minimum score when candidate has demonstrated skills
+            # Apply generous scoring policy: candidates with some demonstrated skills
+            # should score at least 35% even if not perfect fit
+            # This reflects the hiring philosophy: potential matters
             if analysis_result.get("match_score", 0) < 35 and len(analysis_result.get("key_strengths", [])) > 0:
                 analysis_result["match_score"] = 35
 
