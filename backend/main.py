@@ -172,8 +172,13 @@ import google.generativeai as genai
 
 class GeminiAIClient:
     """
-    Google Gemini AI client for backup resume analysis.
-    Uses the latest google-generativeai SDK (0.8.3+)
+    Google Gemini AI client for backup resume analysis (Tier 2).
+
+    Wraps the google-generativeai SDK (0.8.3+) and provides a clean
+    interface for generating structured JSON analysis from a resume
+    and job description.  If the Gemini API is unavailable or returns
+    an invalid response, the client transparently falls back to the
+    keyword-based analysis engine.
     """
 
     def __init__(self):
