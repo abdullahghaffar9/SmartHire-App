@@ -42,10 +42,11 @@ Requirements:
     - python-dotenv >= 1.0.0
 
 Author: Abdullah Ghaffar
-Repository: https://github.com/abdullahghaffar/SmartHire
+Repository: https://github.com/abdullahghaffar9/SmartHire-App
 License: MIT
-Version: 1.0.0
+Version: 1.1.0
 Created: January 2026
+Last Updated: February 2026
 """
 
 import os
