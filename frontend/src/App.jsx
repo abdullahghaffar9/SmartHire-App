@@ -175,11 +175,14 @@ export default function App() {
   // ============================================================
   // API COMMUNICATION & ANALYSIS
   // ============================================================
-  
+
   /**
-   * Submit resume and job description for AI analysis
-   * Sends multipart form data to backend
-   * Handles loading states and error reporting
+   * analyzeCandidate - Submit resume and job description for AI analysis.
+   *
+   * Builds a multipart/form-data payload containing the selected PDF and
+   * the job description text, then POSTs it to the backend /analyze-resume
+   * endpoint.  Manages the loading flag while the request is in-flight and
+   * surfaces any error message to the UI on failure.
    */
   const analyzeCandidate = async () => {
     if (!resumeFile || !jobDescription.trim()) {
