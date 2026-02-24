@@ -47,16 +47,18 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 /**
  * AnimatedCounter Component
  *
- * Displays an animated number counter that increments from 0 to a target value.
- * Used for showing match score percentages with smooth animation.
+ * Renders a number that smoothly animates from 0 up to `value` over
+ * `duration` seconds using requestAnimationFrame for a fluid 60 fps
+ * experience.  Primarily used to display the AI match-score percentage
+ * in the results panel.
  *
  * Props:
- *   value (number) - Target value to animate to
- *   duration (number) - Animation duration in seconds (default: 2)
+ *   value    {number} - Final value to animate to
+ *   duration {number} - Animation length in seconds (default: 2)
  *
  * Example:
  *   <AnimatedCounter value={85} duration={2} />
- *   // Animates from 0 to 85 over 2 seconds
+ *   // Counts from 0 → 85 over 2 seconds
  */
 const AnimatedCounter = ({ value, duration = 2 }) => {
   const [count, setCount] = React.useState(0);
