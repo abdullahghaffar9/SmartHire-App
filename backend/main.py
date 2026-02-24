@@ -94,6 +94,10 @@ app = FastAPI(
 
 # ============================================================
 # CORS CONFIGURATION - Environment-Aware Security Settings
+#
+# Restricts cross-origin requests to known frontend domains.
+# In production only Vercel-hosted origins are whitelisted;
+# in development all localhost variants are permitted.
 # ============================================================
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
