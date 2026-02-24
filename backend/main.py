@@ -3,31 +3,39 @@ SmartHire Backend API
 =====================
 
 A production-ready FastAPI service for AI-powered resume analysis and candidate
-evaluation. Implements a 3-tier AI analysis system with intelligent failover.
+evaluation. Implements a 3-tier AI analysis system with intelligent failover,
+ensuring analysis results are always available even when upstream AI providers
+are unavailable or rate-limited.
 
 Architecture:
-    Tier 1: Groq (Llama 3.1 70B) - Ultra-fast LPU inference, primary analysis
-    Tier 2: Google Gemini 2.0 Flash - Backup AI with quality fallback
-    Tier 3: Keyword Analysis - Always-available fallback for reliability
+    Tier 1: Groq (Llama 3.1 70B)       - Ultra-fast LPU inference, primary analysis
+    Tier 2: Google Gemini 2.0 Flash     - Backup AI with quality fallback
+    Tier 3: Keyword Analysis Engine     - Always-available fallback for reliability
+
+Failover Strategy:
+    The service attempts Tier 1 first. On failure or unavailability, it
+    automatically falls back to Tier 2, and then Tier 3. This guarantees a
+    response under all conditions, with graceful degradation of analysis depth.
 
 Features:
     - Multi-tier AI analysis with automatic provider failover
-    - PDF resume parsing and intelligent text extraction
+    - PDF resume parsing and intelligent text extraction (PyMuPDF)
     - Multi-model support (Groq, Gemini, Keyword-based)
     - Generous scoring algorithm (focuses on candidate potential)
     - Structured JSON responses for easy frontend integration
-    - Production-ready error handling and logging
+    - Production-ready error handling and structured logging
     - CORS configuration for security (environment-aware)
     - Health check endpoint for deployment monitoring
+    - Pydantic v2 response models for type-safe API contracts
 
 API Endpoints:
-    GET  /health                    - Service health check
+    GET  /health                    - Service health check and status
     POST /analyze-resume            - Full AI analysis with all tiers
-    POST /analyze-resume/basic      - Text extraction only (no AI)
+    POST /analyze-resume/basic      - Text extraction only (no AI analysis)
 
 Environment Configuration:
-    GROQ_API_KEY        - Required for Tier 1 AI analysis
-    GEMINI_API_KEY      - Optional for Tier 2 backup AI
+    GROQ_API_KEY        - Required for Tier 1 AI analysis (Groq LPU)
+    GEMINI_API_KEY      - Optional for Tier 2 backup AI (Google Gemini)
     ENVIRONMENT         - 'development' or 'production' (default: development)
     PORT                - Server port (default: 8000)
 
@@ -42,7 +50,7 @@ Requirements:
     - python-dotenv >= 1.0.0
 
 Author: Abdullah Ghaffar
-Repository: https://github.com/abdullahghaffar/SmartHire
+Repository: https://github.com/abdullahghaffar9/SmartHire-App
 License: MIT
 Version: 1.0.0
 Created: January 2026
@@ -164,23 +172,35 @@ import google.generativeai as genai
 
 class GeminiAIClient:
     """
-    Google Gemini AI client for backup resume analysis.
-    Uses the latest google-generativeai SDK (0.8.3+)
+    Google Gemini AI client for Tier 2 backup resume analysis.
+
+    Acts as the second tier in the failover chain. When Groq (Tier 1) is
+    unavailable or returns an error, requests are automatically routed here.
+    Uses the google-generativeai SDK (0.8.3+) with the gemini-pro model.
+
+    On further failure, this client transparently falls back to the built-in
+    keyword analysis engine (Tier 3) via ``_analyze_with_fallback``.
     """
 
     def __init__(self):
-        """Initialize Gemini client with API key from environment."""
+        """Initialize Gemini client with API key from environment.
+
+        Reads GEMINI_API_KEY from the environment and configures the SDK.
+        Sets ``self.model`` to None when the key is absent or initialization
+        fails so that ``is_available()`` returns False and callers skip to
+        the next tier automatically.
+        """
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.model = None
 
         if self.api_key:
             try:
-                # Configure the SDK with your API key
+                # Configure the google-generativeai SDK globally with the key
                 genai.configure(api_key=self.api_key)
-                
-                # Create the model instance - NO "models/" prefix needed
+
+                # Instantiate the model — use the plain model name, not "models/<name>"
                 self.model = genai.GenerativeModel('gemini-pro')
-                
+
                 logger.info("✅ Gemini AI initialized successfully (Backup Tier - gemini-pro)")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Gemini: {e}")
@@ -189,19 +209,30 @@ class GeminiAIClient:
             logger.warning("⚠️ GEMINI_API_KEY not found - Gemini unavailable")
 
     def is_available(self) -> bool:
-        """Check if Gemini is ready to use."""
+        """Return True when the Gemini model was successfully initialized."""
         return self.model is not None
 
     def analyze_resume(self, resume_text: str, job_description: str) -> dict:
-        """
-        Analyze resume using Gemini AI.
-        Falls back to keyword analysis if API fails.
+        """Analyze a resume against a job description using Gemini AI.
+
+        Sends a structured prompt to Gemini and parses the JSON response.
+        If the API call fails for any reason (network error, quota exceeded,
+        malformed response, etc.) the method falls back to the keyword
+        analysis engine and returns its result instead.
+
+        Args:
+            resume_text (str): Plain text extracted from the candidate's PDF resume.
+            job_description (str): The job requirements provided by the recruiter.
+
+        Returns:
+            A dict with keys: match_score, key_strengths, missing_skills,
+            summary, and email_draft.
         """
         if self.is_available():
             try:
                 logger.info("📤 Sending request to Gemini API...")
-                
-                # Build the analysis prompt
+
+                # Structured prompt that instructs Gemini to return strict JSON
                 prompt = f"""Analyze this resume against the job requirements and provide a structured assessment.
 
 JOB DESCRIPTION:
@@ -218,16 +249,17 @@ Provide your analysis in this exact JSON format:
     "summary": "Professional assessment of candidate fit",
     "email_draft": "Professional email template for next steps"
 }}"""
-                
-                # Generate content - CORRECT way (no .models prefix!)
+
+                # Call the Gemini model — generate_content() is the correct API
                 response = self.model.generate_content(prompt)
-                
-                # Extract and parse response
+
+                # Strip whitespace before parsing to avoid leading/trailing issues
                 response_text = response.text.strip()
-                
+
                 logger.info("✅ Gemini API response received")
-                
-                # Parse JSON from response
+
+                # Extract the JSON object using a greedy DOTALL regex; works for
+                # both plain JSON responses and responses wrapped in markdown fences
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
                     analysis = json.loads(json_match.group())
@@ -235,12 +267,12 @@ Provide your analysis in this exact JSON format:
                     return analysis
                 else:
                     raise ValueError("No JSON found in Gemini response")
-                    
+
             except Exception as e:
                 logger.error(f"❌ Gemini API error: {type(e).__name__}: {str(e)[:200]}")
                 logger.warning("⚠️ Falling back to keyword analysis")
-        
-        # Fallback to keyword analysis
+
+        # Both Tier 1 and Tier 2 unavailable — delegate to Tier 3 keyword engine
         return self._analyze_with_fallback(resume_text, job_description)
 
     def _analyze_with_fallback(self, resume_text: str, job_description: str) -> dict:

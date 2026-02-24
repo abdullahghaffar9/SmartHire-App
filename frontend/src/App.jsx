@@ -6,28 +6,37 @@
  * Provides an intuitive interface for uploading resumes and evaluating
  * candidate fit against job descriptions.
  *
+ * Data Flow:
+ *   1. Recruiter uploads a PDF resume via drag-and-drop or file picker.
+ *   2. Recruiter enters the job description in the text area.
+ *   3. On submit, the PDF and job description are sent to the FastAPI backend.
+ *   4. The backend runs 3-tier AI analysis and returns a structured JSON result.
+ *   5. The UI renders the match score, strengths, gaps, summary, and email draft.
+ *
  * Features:
- *   - Drag-and-drop PDF resume upload
+ *   - Drag-and-drop PDF resume upload with visual feedback
  *   - Real-time job description input
- *   - AI-powered resume analysis with 3-tier fallback
+ *   - AI-powered resume analysis with 3-tier fallback (Groq → Gemini → Keywords)
  *   - Animated results display with detailed scoring
  *   - Email draft generation for candidate communication
- *   - Copy-to-clipboard functionality
+ *   - Copy-to-clipboard functionality for the generated email
  *   - Responsive design (mobile, tablet, desktop)
- *   - Smooth animations and transitions
+ *   - Smooth animations and transitions via Framer Motion
  *
  * Technology Stack:
- *   - React 18 - UI framework
- *   - Vite 5+ - Build tool and dev server
- *   - TailwindCSS 3 - Utility-first CSS framework
- *   - Framer Motion - Animation library
- *   - Axios - HTTP client
- *   - Lucide React - Icon library
+ *   - React 18        - UI framework with hooks
+ *   - Vite 5+         - Build tool and HMR dev server
+ *   - TailwindCSS 3   - Utility-first CSS framework
+ *   - Framer Motion   - Declarative animation library
+ *   - Axios           - Promise-based HTTP client
+ *   - Lucide React    - Lightweight SVG icon library
  *
  * Environment Configuration:
  *   VITE_API_URL - Backend API endpoint (default: http://127.0.0.1:8000)
+ *                  Set to the deployed Railway/Render URL in production.
  *
  * Author: Abdullah Ghaffar
+ * Repository: https://github.com/abdullahghaffar9/SmartHire-App
  * License: MIT
  * Version: 1.0.0
  */
@@ -127,9 +136,13 @@ export default function App() {
   // ============================================================
   
   /**
-   * Handle file selection from file input
-   * Validates file type and updates resume state
-   * Only accepts PDF files
+   * handleFileChange - File input change handler
+   *
+   * Fired when the user selects a file through the hidden <input type="file">.
+   * Validates that the chosen file is a PDF before updating state; shows an
+   * error message and clears the selection for any other file type.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} e - The native change event.
    */
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -142,18 +155,44 @@ export default function App() {
     }
   };
 
+  /**
+   * handleDragOver - Drag-over event handler for the drop zone
+   *
+   * Prevents the browser's default "open file" behavior and applies
+   * visual highlight classes to the drop zone element to signal that
+   * a drop is accepted.
+   *
+   * @param {React.DragEvent<HTMLDivElement>} e - The native drag event.
+   */
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
     dropZoneRef.current?.classList.add('border-blue-500', 'bg-blue-50');
   };
 
+  /**
+   * handleDragLeave - Drag-leave event handler for the drop zone
+   *
+   * Removes the visual highlight added by handleDragOver when the
+   * dragged item leaves the drop zone without being dropped.
+   *
+   * @param {React.DragEvent<HTMLDivElement>} e - The native drag event.
+   */
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
   };
 
+  /**
+   * handleDrop - Drop event handler for the drop zone
+   *
+   * Processes a drag-and-drop file deposit. Removes the visual highlight,
+   * reads the first dropped file, validates it is a PDF, and updates state.
+   * Non-PDF files produce an error message and clear the previous selection.
+   *
+   * @param {React.DragEvent<HTMLDivElement>} e - The native drop event.
+   */
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -172,11 +211,18 @@ export default function App() {
   // ============================================================
   // API COMMUNICATION & ANALYSIS
   // ============================================================
-  
+
   /**
-   * Submit resume and job description for AI analysis
-   * Sends multipart form data to backend
-   * Handles loading states and error reporting
+   * analyzeCandidate - Main analysis submission handler
+   *
+   * Validates that both a resume file and a non-empty job description are
+   * present, then POSTs them as multipart/form-data to the backend
+   * ``/analyze-resume`` endpoint. On success, stores the ``ai_analysis``
+   * payload in state for rendering. On failure, surfaces the server error
+   * message (or a generic fallback) to the user.
+   *
+   * Loading and error states are managed so the UI can show a spinner and
+   * disable the submit button during the request lifecycle.
    */
   const analyzeCandidate = async () => {
     if (!resumeFile || !jobDescription.trim()) {
@@ -188,11 +234,12 @@ export default function App() {
     setError(null);
 
     try {
+      // Build multipart form data — the backend expects `file` and `job_description`
       const formData = new FormData();
       formData.append('file', resumeFile);
       formData.append('job_description', jobDescription);
 
-      // Send to backend API with proper content-type for file upload
+      // POST to the backend; Axios sets Content-Type automatically for FormData
       const response = await axios.post(
         `${API_URL}/analyze-resume`,
         formData,
@@ -203,16 +250,20 @@ export default function App() {
         }
       );
 
+      // Store only the nested ai_analysis object; the rest of the payload is
+      // the raw extracted text which is not needed by the results UI.
       setAnalysisResult(response.data.ai_analysis);
       setError(null);
     } catch (err) {
       console.error('Error:', err);
+      // Prefer the server-provided detail string; fall back to a generic message
       setError(
         err.response?.data?.detail ||
         'Failed to analyze resume. Please try again.'
       );
       setAnalysisResult(null);
     } finally {
+      // Always clear loading state regardless of success or failure
       setLoading(false);
     }
   };
@@ -220,10 +271,13 @@ export default function App() {
   // ============================================================
   // UTILITY FUNCTIONS
   // ============================================================
-  
+
   /**
-   * Copy email draft to clipboard
-   * Shows confirmation message for 2 seconds
+   * copyToClipboard - Copy the generated email draft to the clipboard
+   *
+   * Uses the Clipboard API to copy the email draft string. Sets the
+   * ``copied`` flag to true for 2 seconds so the UI can display a
+   * confirmation indicator, then resets it.
    */
   const copyToClipboard = () => {
     if (analysisResult?.email_draft) {
@@ -233,18 +287,33 @@ export default function App() {
     }
   };
 
+  /**
+   * getMatchScoreColor - Resolve Tailwind text-color class for a match score
+   * @param {number} score - The match percentage (0–100).
+   * @returns {string} A Tailwind CSS text-color utility class.
+   */
   const getMatchScoreColor = (score) => {
     if (score >= 75) return 'text-green-500';
     if (score >= 50) return 'text-yellow-500';
     return 'text-red-500';
   };
 
+  /**
+   * getMatchScoreBgColor - Resolve Tailwind background-color class for a match score
+   * @param {number} score - The match percentage (0–100).
+   * @returns {string} A Tailwind CSS bg-color utility class.
+   */
   const getMatchScoreBgColor = (score) => {
     if (score >= 75) return 'bg-green-500/10';
     if (score >= 50) return 'bg-yellow-500/10';
     return 'bg-red-500/10';
   };
 
+  /**
+   * getMatchScoreBorderColor - Resolve Tailwind border-color class for a match score
+   * @param {number} score - The match percentage (0–100).
+   * @returns {string} A Tailwind CSS border-color utility class.
+   */
   const getMatchScoreBorderColor = (score) => {
     if (score >= 75) return 'border-green-500';
     if (score >= 50) return 'border-yellow-500';

@@ -208,23 +208,18 @@ Response:
 ## Code Quality & Documentation
 
 ### Backend (`backend/main.py`)
-- **Professional module-level documentation** with architecture overview
-- **Class documentation** with detailed explanations of purpose and attributes
-- **Method documentation** with parameters, returns, and examples
-- **Inline comments** for complex logic and decision points
-- **Error handling** with contextual logging
+- **Professional module-level documentation** with architecture overview and failover strategy
+- **Class documentation** with detailed explanations of purpose, attributes, and tier role
+- **Method documentation** with `Args`, `Returns`, and behavioural notes (Google-style docstrings)
+- **Inline comments** for complex logic, decision points, and SDK usage caveats
+- **Error handling** with contextual structured logging at each tier
 
 ### Frontend (`frontend/src/App.jsx`)
-- **Module documentation** describing component purpose and tech stack
-- **Component documentation** for App and utility components
-- **Function documentation** for key handlers and utilities
-- **State management comments** explaining component state variables
-- **Clean, semantic variable names** improving readability
-
-### All Emojis Removed
-- ✅ Backend: No emojis in code or logging
-- ✅ Frontend: No emojis in JSX or comments
-- ✅ Professional, text-based descriptions throughout
+- **Module documentation** describing data flow, component purpose, and tech stack
+- **Component documentation** for `App` and `AnimatedCounter` utility components
+- **JSDoc function documentation** for every handler and utility — including `@param` and `@returns`
+- **State management comments** explaining each `useState` and `useRef` variable
+- **Clean, semantic variable names** improving long-term readability
 
 ## Deployment
 
@@ -399,6 +394,7 @@ Built with:
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: January 2026  
+**Last Updated**: February 2026  
 **Author**: Abdullah Ghaffar  
+**Repository**: https://github.com/abdullahghaffar9/SmartHire-App  
 **License**: MIT
