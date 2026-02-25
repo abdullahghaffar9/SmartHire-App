@@ -1164,151 +1164,369 @@ Provide your analysis in this exact JSON format (no other text before or after):
         # ============================================================
         # SKILL SCORE CALCULATION (Primary Component: 0-60 points)
         # ============================================================
+        # 
+        # FOUNDATION OF THE MATCH:
+        # The skill score is the cornerstone of candidate evaluation.
+        # It measures how well resume skills align with job requirements.
+        # 
+        # CALCULATION METHOD:
+        # Skill Score = (matched_weight / total_weight) × 60 points
+        # 
+        # VARIABLES:
+        # - matched_weight: Sum of weights for skills FOUND in resume
+        #   Represents candidate's actual capabilities
+        # 
+        # - total_weight: Sum of weights for ALL skills in job description
+        #   Represents job's complete requirement set
+        # 
+        # - 60 points: Maximum skill contribution to final score
+        #   Leaves room for other factors (experience, education, etc.)
+        # 
+        # EXAMPLE WALKTHROUGH:
+        # ─────────────────────────────────────────────────────────
+        # Job Description Requires:
+        #   - Python (weight 1.5) ✓ FOUND in resume → +1.5
+        #   - React (weight 1.3) ✗ NOT in resume → +0
+        #   - PostgreSQL (weight 1.3) ✓ FOUND in resume → +1.3
+        # 
+        # Calculation:
+        #   matched_weight = 1.5 + 1.3 = 2.8
+        #   total_weight = 1.5 + 1.3 + 1.3 = 4.1
+        #   skill_score = (2.8 / 4.1) × 60 = 41 points
+        # 
+        # Interpretation:
+        #   Candidate has 68% of required skills (2.8 of 4.1)
+        #   Gets 41 points out of 60 possible
+        # ─────────────────────────────────────────────────────────
+        # 
+        # EDGE CASES:
+        # 1. No specific skills in job description (rare):
+        #    - total_weight = 0
+        #    - Can't divide by zero, so default to 45 points
+        #    - Candidate can't be judged unfairly on missing specifics
+        # 
+        # 2. No skills matched:
+        #    - matched_weight = 0
+        #    - skill_score = 0 × 60 = 0 points
+        #    - Candidate needs all required skills
+        # 
+        # 3. All skills matched:
+        #    - matched_weight = total_weight
+        #    - skill_score = 100% × 60 = 60 points (maximum)
+        #    - Perfect match on required skills
+        # 
+        # DISTRIBUTION ANALYSIS:
+        # Score Range   Interpretation
+        # 50-60         Amazing skill match (95%+ of requirements)
+        # 40-49         Good skill match (60-95%)
+        # 30-39         Moderate skill match (40-60%)
+        # 20-29         Weak skill match (20-40%)
+        # 0-19          Poor skill match (<20%)
+        # 
+        # ============================================================
         
         # The skill score is the foundation of the match
         # It's based on weighted skill matching against job description
-        #
-        # Calculation: (matched_weight / total_weight) * 60 points
-        #   matched_weight = sum of weights for skills found in resume
-        #   total_weight    = sum of all weights in job description
-        #   Result = percentage of required skills × 60
-        #
-        # Example:
-        #   Job requires: Python (weight 2.0) + React (weight 1.5) = 3.5 total
-        #   Resume has: Python (2.0) = 2.0 matched
-        #   Skill score = (2.0 / 3.5) * 60 = 34 points
-        
         if total_weight > 0:
             # Normal case: job description specifies skills to match
+            # Calculate percentage of matched requirements
             skill_score = int((matched_weight / total_weight) * 60)
         else:
             # Edge case: no specific skills in job description
             # Give moderate score (candidate can't be judged on specifics)
+            # This prevents penalizing candidates on incomplete job descriptions
             skill_score = 45
-        
+
         # ============================================================
-        # EXPERIENCE BONUS (Secondary Component: 0-15 points)
+        # EXPERIENCE BONUS CALCULATION (Secondary: 0-15 points)
+        # ============================================================
+        # 
+        # WHY EXPERIENCE MATTERS:
+        # More years in field = higher competency and maturity
+        # However, diminishing returns: 10 years vs 20 years similar value
+        # Using tiered system allows non-linear rewards
+        # 
+        # TIER DISTRIBUTION:
+        # 10+ years: 15 points (Expert level, decade+ in field)
+        # 7-9 years: 12 points (Senior level, deep expertise)
+        # 5-6 years: 10 points (Solid level, proven track record)
+        # 3-4 years: 7 points  (Developing level, learning phase)
+        # 1-2 years: 5 points  (Entry+ level, some real-world experience)
+        # 0 years:   0 points  (Fresh graduate or career change)
+        # 
+        # PHILOSOPHY:
+        # - First 5 years: rapid growth (bigger points per year)
+        # - 5-10 years: steady growth (diminishing returns)
+        # - 10+ years: plateau (experience cap, not major differentiator)
+        # 
+        # RATIONALE:
+        # Junior developer (2 years) to mid (5 years) = big jump
+        # Mid developer (5 years) to senior (10 years) = steady growth
+        # But 20 years vs 10 years? Similar capability if current knowledge
+        # 
+        # REAL-WORLD USAGE:
+        # "5+ years experience required" is very common job posting
+        # Getting 10 points means candidate meets basic requirement
+        # Getting 15 points means candidate exceeds baseline
+        # 
         # ============================================================
         
         # Years of experience shows depth and maturity in the field
         # Using tiered system to reward seniority while not penalizing juniors
-        #
-        # Distribution:
-        #   10+ years: 15 points (senior level)
-        #   7-9 years: 12 points (experienced)
-        #   5-6 years: 10 points (solid experience)
-        #   3-4 years: 7 points  (developing)
-        #   1-2 years: 5 points  (entry with some experience)
-        #   0 years:   0 points  (fresh graduate or career change)
-        
         experience_bonus = 0
         if experience_years >= 10:
-            experience_bonus = 15
+            experience_bonus = 15  # Expert: decade+ in field
         elif experience_years >= 7:
-            experience_bonus = 12
+            experience_bonus = 12  # Senior: 7-9 years deep experience
         elif experience_years >= 5:
-            experience_bonus = 10
+            experience_bonus = 10  # Solid: 5-6 years proven track record
         elif experience_years >= 3:
-            experience_bonus = 7
+            experience_bonus = 7   # Developing: 3-4 years building skills
         elif experience_years >= 1:
-            experience_bonus = 5
-        # else: 0 years → 0 points
+            experience_bonus = 5   # Entry+: 1-2 years real-world experience
+        # else: 0 years → 0 points (fresh graduate or career changer)
         
         # ============================================================
         # SENIORITY LEVEL BONUS (0-10 points)
         # ============================================================
+        # 
+        # WHY SENIORITY MATTERS:
+        # Job titles encode career progression and level of responsibility
+        # "Senior" != "Junior" even if both have same tech skills
+        # "Tech Lead" requires different skills than "Developer"
+        # 
+        # MATCHING STRATEGY:
+        # Senior job ← can hire : senior, mid (grows), not junior (too early)
+        # Mid job ← can hire : senior (overqualified but ok), mid, junior (trainable)
+        # Junior job ← can hire : anyone (all are suitable)
+        # 
+        # POINT ALLOCATION:
+        # 0-10 based on match between job requirement and candidate level
+        # 
+        # EXAMPLE SCENARIOS:
+        # 
+        # Scenario A: Senior Role
+        #   Job wants: "Senior Backend Engineer"
+        #   Candidate is: Senior Developer
+        #   Seniority bonus: 10 (perfect match)
+        #   Interpretation: Can handle leadership, experienced
+        #
+        # Scenario B: Senior Role, Mid Candidate
+        #   Job wants: "Senior Backend Engineer"
+        #   Candidate is: Mid-level Engineer
+        #   Seniority bonus: 5 (can grow)
+        #   Interpretation: Right technical skills, grows into senior responsibilities
+        #
+        # Scenario C: Senior Role, Junior Candidate
+        #   Job wants: "Senior Backend Engineer"
+        #   Candidate is: Junior Developer
+        #   Seniority bonus: 0 (not ready)
+        #   Interpretation: Lacks experience for senior role, needs mentorship
+        #
+        # Scenario D: Mid/Entry Role
+        #   Job wants: "Software Engineer" (no seniority specified)
+        #   Candidate is: Any level
+        #   Seniority bonus: 5 (everyone fits)
+        #   Interpretation: Role doesn't require specific seniority, all equally suitable
+        # 
+        # ============================================================
         
         # Match between candidate's career level and position requirements
-        # Why it matters: A senior engineer in a junior role is overqualified
-        # but trainable. A junior in a senior role is underqualified.
-        #
-        # Two-tier logic:
-        # 1. If job requires senior/lead level:
-        #    - Senior candidate: 10 points (perfect match)
-        #    - Mid candidate:     5 points (can grow into role)
-        #    - Junior candidate:  0 points (not ready)
-        #
-        # 2. If job is entry/mid level:
-        #    - Any level: 5 points (everyone is suitable)
-        
         seniority_bonus = 0
-        if 'senior' in job_lower or 'lead' in job_lower:
-            # Job explicitly requires seniority
+        if 'senior' in job_lower or 'lead' in job_lower or 'principal' in job_lower:
+            # Job explicitly requires seniority/leadership
             if detected_level == 'senior':
-                seniority_bonus = 10  # Perfect seniority match
+                seniority_bonus = 10  # Perfect seniority match (expert level)
             elif detected_level == 'mid':
                 seniority_bonus = 5   # Can grow into senior role
             # else: junior gets 0 (not ready for senior role)
         else:
             # Job is entry/mid level (no seniority requirement)
-            seniority_bonus = 5  # Any candidate is suitable
+            # Any candidate level is suitable
+            seniority_bonus = 5
         
         # ============================================================
         # EDUCATION BONUS (0-10 points)
         # ============================================================
+        # 
+        # WHY EDUCATION MATTERS:
+        # Formal education shows foundational knowledge investment
+        # Some roles strongly prefer/require specific degrees
+        # But tech industry increasingly hired bootcamp graduates
+        # 
+        # DEGREE VALUE TIERS:
+        # PhD/Doctorate: 10 points
+        #   - Highest academic achievement
+        #   - Requires 5-7 years post-bachelor study
+        #   - Common in: Research, specialized roles
+        #   - Examples: PhD Computer Science, MD, DDS
+        #
+        # Master's Degree: 8 points
+        #   - Advanced degree with specialization
+        #   - Requires 2-3 years post-bachelor study
+        #   - Common in: Systems architecture, specialized tech
+        #   - Examples: MS Comp Sci, MBA, MA Technical Writing
+        #
+        # Bachelor's Degree: 6 points
+        #   - Standard 4-year university degree
+        #   - Foundational knowledge expected in most tech roles
+        #   - Common in: Entry point to professional careers
+        #   - Examples: BS Comp Sci, BA Math, B.Sc. Engineering
+        #
+        # Associate's Degree: 4 points
+        #   - 2-year post-secondary education
+        #   - Specific trades and technical skills
+        #   - Common in: Technical roles, specialized training
+        #   - Examples: AA Computer Science, AS Engineering
+        #
+        # No Degree: 0 points
+        #   - Self-taught, bootcamp, on-the-job training
+        #   - Very common in tech (software dev, web dev)
+        #   - Increasingly viable path in 2024+
+        #   - Examples: CodeBootcamp graduate, self-taught developer
+        # 
+        # INDUSTRY NOTE:
+        # Many successful engineers have NO degree (startup founders)
+        # But larger companies may require Bachelor's minimum
+        # Education is less important than skills/portfolio in tech
+        # 
+        # ============================================================
         
         # Academic credentials indicate foundational knowledge
-        # Weighted by degree level and relevance
-        #
-        # Why it matters: Some roles require specific education
-        # (e.g., embedded systems often require hardware background)
-        #
-        # Point allocation:
-        #   PhD/Doctorate: 10 points (highest academic achievement)
-        #   Master's:      8 points  (specialized knowledge)
-        #   Bachelor's:    6 points  (standard qualification)
-        #   Associate's:   4 points  (foundational education)
-        #   None:          0 points  (self-taught, bootcamp, etc.)
-        
         education_bonus = 0
         if education_level:
             # Lookup table for degree value
             education_scores = {
-                'phd': 10,         # Doctoral degree
-                'masters': 8,      # Master's degree
-                'bachelors': 6,    # Bachelor's degree
-                'associates': 4    # Associate's degree
+                'phd': 10,         # Doctoral degree (highest)
+                'masters': 8,      # Master's degree (advanced)
+                'bachelors': 6,    # Bachelor's degree (standard)
+                'associates': 4    # Associate's degree (foundational)
             }
             education_bonus = education_scores.get(education_level, 0)
         
         # ============================================================
         # CERTIFICATION BONUS (0-5 points)
         # ============================================================
+        # 
+        # WHY CERTIFICATIONS MATTER:
+        # Prove specific expertise in high-demand areas
+        # Require study, testing, and often renewal (staying current)
+        # Show commitment to continuous learning and specialization
+        # 
+        # EXAMPLES OF HIGH-VALUE CERTIFICATIONS:
+        # Cloud (High demand):
+        #   - AWS Solutions Architect (high salary correlate)
+        #   - Azure Administrator
+        #   - Google Cloud Associate Engineer
+        #
+        # Project Management:
+        #   - PMP (Project Management Professional)
+        #   - CSM (Certified Scrum Master)
+        #   - SAFe (Scaled Agile Framework)
+        #
+        # Security:
+        #   - CISSP (Certified Info Systems Security Pro)
+        #   - Security+ (CompTIA security foundation)
+        #   - CEH (Certified Ethical Hacker)
+        #
+        # Specialized:
+        #   - Kubernetes CKA (Container orchestration)
+        #   - Oracle Certified (Database specialization)
+        #   - Microsoft Certified (Platform specialization)
+        # 
+        # POINT CALCULATION:
+        # Non-linear formula: 2 points per certification, max 5
+        #   1 cert = 2 points (demonstrates commitment)
+        #   2 certs = 4 points (serious specialization)
+        #   3+ certs = 5 points (expert level, capped)
+        #
+        # Examples:
+        #   AWS cert = 2 points
+        #   AWS + Azure cert = 4 points
+        #   AWS + Azure + GCP certs = 5 points (capped, don't add more)
+        # 
+        # CAPPING AT 5:
+        # Even with 10 certifications, only 5 points max
+        # Reason: Quality > Quantity in certifications
+        # After 3-4 good certs, additional certs show less value
+        # Time spent on 4th cert could be spent on actual projects
+        # 
+        # ============================================================
         
         # Professional certifications show commitment and specific expertise
-        # Examples: AWS Certified Solutions Architect, PMP, Kubernetes CKA
-        #
-        # Extra value because:
-        #   - Requires study and exam passing
-        #   - Shows current knowledge (often yearly renewal)
-        #   - Indicates specific skill verification
-        #
-        # Calculation: min(5, count × 2)
-        #   1 cert = 2 points
-        #   2 certs = 4 points
-        #   3+ certs = 5 points (capped at 5)
-        
+        # Weighting: Each cert = 2 points, capped at 5 total
         certification_bonus = min(5, len(found_certifications) * 2)
         
         # ============================================================
-        # FINAL SCORE AGGREGATION
+        # FINAL SCORE AGGREGATION (0-100 scale)
         # ============================================================
-        
-        # Sum all components with bounds:
-        #   Upper bound: 95 (leave room for unknown unknowns)
-        #   Lower bound: 25 (everyone has some value)
-        #   Formula: SKILL + EXPERIENCE + SENIORITY + EDUCATION + CERT
+        # 
+        # COMPONENT BREAKDOWN (Total 100 possible points):
+        # Skill Score:        0-60 points (60%)  - Core competency match
+        # Experience Bonus:   0-15 points (15%)  - Years in field maturity
+        # Seniority Bonus:    0-10 points (10%)  - Career level alignment
+        # Education Bonus:    0-10 points (10%)  - Academic credentials
+        # Certification Bonus: 0-5 points (5%)   - Professional credentials
+        # Total possible:     100 points
         #
-        # Example calculation:
-        #   Skill score:        45 points (60% of required skills)
-        #   Experience bonus:   10 points (5 years)
+        # BUT BOUNDS:
+        # Minimum: 25 points (everyone has some value)
+        # Maximum: 95 points (room for unknowns from interviews)
+        #
+        # CLAMPING LOGIC:
+        # max(25, ...) ensures minimum 25 (floor)
+        # min(95, ...) ensures maximum 95 (ceiling)
+        # Formula: final_score = min(95, max(25, sum))
+        #
+        # WHY THESE BOUNDS?
+        # 
+        # Minimum 25 (not 0):
+        #   - Philosophical: Everyone has value and transferable skills
+        #   - Practical: Prevents demoralizing 0% matches
+        #   - Even with no matching skills, candidate has communication ability
+        #
+        # Maximum 95 (not 100):
+        #   - Philosophical: Leave room for unknowns revealed in interview
+        #   - Practical: Perfect candidates don't exist (unknown unknowns)
+        #   - Interview usually changes expectations (some good, some bad)
+        #   - 100 = "don't even interview" but 95 = "strong candidate"
+        #
+        # EXAMPLE CALCULATION:
+        # ─────────────────────────────────────────────────────────
+        # Strong mid-level candidate:
+        #   Skill score:        45 points (75% of required skills)
+        #   Experience bonus:   10 points (5 years in field)
         #   Seniority bonus:    5 points  (mid-level matches mid role)
         #   Education bonus:    6 points  (bachelor's degree)
         #   Certification bonus: 2 points (1 AWS cert)
-        #   ────────────────────────────
-        #   Raw total:         68 points
-        #   Final score:       68 → Clamped to [25-95] → 68 (GOOD match)
+        #   ──────────────────────────────
+        #   Raw sum:           68 points
+        #   After clamp:       68 points (within 25-95 range)
+        #   Final score:       68/100 → "Good fit" tier
+        #   Interpretation:    Qualified candidate, ready to interview
+        #
+        # Very weak candidate:
+        #   Skill score:        10 points (15% of required skills)
+        #   Experience bonus:   0 points  (fresh graduate)
+        #   Seniority bonus:    0 points  (junior for senior role)
+        #   Education bonus:    0 points  (no degree)
+        #   Certification bonus: 0 points (no certs)
+        #   ──────────────────────────────
+        #   Raw sum:           10 points
+        #   After clamp:       25 points (minimum floor applied)
+        #   Final score:       25/100 → "Needs Development" tier
+        #   Interpretation:    Weak fit, but gets minimum score
+        # ─────────────────────────────────────────────────────────
+        # 
+        # ============================================================
         
+        # Sum all components with bounds:
+        # - Skills: 0-60 (core matching)
+        # - Experience: 0-15 (years in field)
+        # - Seniority: 0-10 (career level)
+        # - Education: 0-10 (academic credentials)
+        # - Certification: 0-5 (professional certs)
+        # Final range: 0-100 (bounded to 25-95)
         final_score = min(95, max(25, 
             skill_score + 
             experience_bonus + 
