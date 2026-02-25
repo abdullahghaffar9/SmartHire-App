@@ -708,17 +708,72 @@ Provide your analysis in this exact JSON format:
         found_certifications = [cert for cert in common_certifications if cert in resume_lower]
         
         # ============================================================
+        # ============================================================
         # CALCULATE INTELLIGENT MATCH SCORE
         # ============================================================
+        # 
+        # SCORING PHILOSOPHY:
+        # The algorithm uses a GENEROUS APPROACH that favors candidate potential
+        # over perfect matches. We believe candidates can learn, grow, and adapt.
+        # 
+        # SCORE BREAKDOWN (max 95 points, min 25 points):
+        #   - Skill Score (0-60):         Core competency match to job description
+        #   - Experience Bonus (0-15):    Years of relevant experience
+        #   - Seniority Bonus (0-10):     Career level matches job level requirements
+        #   - Education Bonus (0-10):     Academic credentials and degrees
+        #   - Certification Bonus (0-5):  Professional certifications and credentials
+        # 
+        # Why max 95 not 100?
+        #   - Preserves realistic expectations (no perfect candidates)
+        #   - Leaves room for growth and learning
+        #   - Interviews may reveal additional strengths not in resume
+        # 
+        # Why min 25?
+        #   - Everyone has some value and transferable skills
+        #   - Very weak candidates still get consideration
+        #   - Prevents demoralizing 0% matches
+        # ============================================================
         
-        # Base score from weighted skill matching (0-60 points)
+        # ============================================================
+        # SKILL SCORE CALCULATION (Primary Component: 0-60 points)
+        # ============================================================
+        
+        # The skill score is the foundation of the match
+        # It's based on weighted skill matching against job description
+        #
+        # Calculation: (matched_weight / total_weight) * 60 points
+        #   matched_weight = sum of weights for skills found in resume
+        #   total_weight    = sum of all weights in job description
+        #   Result = percentage of required skills × 60
+        #
+        # Example:
+        #   Job requires: Python (weight 2.0) + React (weight 1.5) = 3.5 total
+        #   Resume has: Python (2.0) = 2.0 matched
+        #   Skill score = (2.0 / 3.5) * 60 = 34 points
+        
         if total_weight > 0:
+            # Normal case: job description specifies skills to match
             skill_score = int((matched_weight / total_weight) * 60)
         else:
-            # If no specific skills in job description, give moderate score
+            # Edge case: no specific skills in job description
+            # Give moderate score (candidate can't be judged on specifics)
             skill_score = 45
         
-        # Experience bonus (0-15 points)
+        # ============================================================
+        # EXPERIENCE BONUS (Secondary Component: 0-15 points)
+        # ============================================================
+        
+        # Years of experience shows depth and maturity in the field
+        # Using tiered system to reward seniority while not penalizing juniors
+        #
+        # Distribution:
+        #   10+ years: 15 points (senior level)
+        #   7-9 years: 12 points (experienced)
+        #   5-6 years: 10 points (solid experience)
+        #   3-4 years: 7 points  (developing)
+        #   1-2 years: 5 points  (entry with some experience)
+        #   0 years:   0 points  (fresh graduate or career change)
+        
         experience_bonus = 0
         if experience_years >= 10:
             experience_bonus = 15
@@ -730,32 +785,103 @@ Provide your analysis in this exact JSON format:
             experience_bonus = 7
         elif experience_years >= 1:
             experience_bonus = 5
+        # else: 0 years → 0 points
         
-        # Seniority bonus (0-10 points)
+        # ============================================================
+        # SENIORITY LEVEL BONUS (0-10 points)
+        # ============================================================
+        
+        # Match between candidate's career level and position requirements
+        # Why it matters: A senior engineer in a junior role is overqualified
+        # but trainable. A junior in a senior role is underqualified.
+        #
+        # Two-tier logic:
+        # 1. If job requires senior/lead level:
+        #    - Senior candidate: 10 points (perfect match)
+        #    - Mid candidate:     5 points (can grow into role)
+        #    - Junior candidate:  0 points (not ready)
+        #
+        # 2. If job is entry/mid level:
+        #    - Any level: 5 points (everyone is suitable)
+        
         seniority_bonus = 0
         if 'senior' in job_lower or 'lead' in job_lower:
+            # Job explicitly requires seniority
             if detected_level == 'senior':
-                seniority_bonus = 10
+                seniority_bonus = 10  # Perfect seniority match
             elif detected_level == 'mid':
-                seniority_bonus = 5
+                seniority_bonus = 5   # Can grow into senior role
+            # else: junior gets 0 (not ready for senior role)
         else:
-            seniority_bonus = 5  # Good for any level
+            # Job is entry/mid level (no seniority requirement)
+            seniority_bonus = 5  # Any candidate is suitable
         
-        # Education bonus (0-10 points)
+        # ============================================================
+        # EDUCATION BONUS (0-10 points)
+        # ============================================================
+        
+        # Academic credentials indicate foundational knowledge
+        # Weighted by degree level and relevance
+        #
+        # Why it matters: Some roles require specific education
+        # (e.g., embedded systems often require hardware background)
+        #
+        # Point allocation:
+        #   PhD/Doctorate: 10 points (highest academic achievement)
+        #   Master's:      8 points  (specialized knowledge)
+        #   Bachelor's:    6 points  (standard qualification)
+        #   Associate's:   4 points  (foundational education)
+        #   None:          0 points  (self-taught, bootcamp, etc.)
+        
         education_bonus = 0
         if education_level:
+            # Lookup table for degree value
             education_scores = {
-                'phd': 10,
-                'masters': 8,
-                'bachelors': 6,
-                'associates': 4
+                'phd': 10,         # Doctoral degree
+                'masters': 8,      # Master's degree
+                'bachelors': 6,    # Bachelor's degree
+                'associates': 4    # Associate's degree
             }
             education_bonus = education_scores.get(education_level, 0)
         
-        # Certification bonus (0-5 points)
+        # ============================================================
+        # CERTIFICATION BONUS (0-5 points)
+        # ============================================================
+        
+        # Professional certifications show commitment and specific expertise
+        # Examples: AWS Certified Solutions Architect, PMP, Kubernetes CKA
+        #
+        # Extra value because:
+        #   - Requires study and exam passing
+        #   - Shows current knowledge (often yearly renewal)
+        #   - Indicates specific skill verification
+        #
+        # Calculation: min(5, count × 2)
+        #   1 cert = 2 points
+        #   2 certs = 4 points
+        #   3+ certs = 5 points (capped at 5)
+        
         certification_bonus = min(5, len(found_certifications) * 2)
         
-        # Calculate final score (max 95 to seem realistic)
+        # ============================================================
+        # FINAL SCORE AGGREGATION
+        # ============================================================
+        
+        # Sum all components with bounds:
+        #   Upper bound: 95 (leave room for unknown unknowns)
+        #   Lower bound: 25 (everyone has some value)
+        #   Formula: SKILL + EXPERIENCE + SENIORITY + EDUCATION + CERT
+        #
+        # Example calculation:
+        #   Skill score:        45 points (60% of required skills)
+        #   Experience bonus:   10 points (5 years)
+        #   Seniority bonus:    5 points  (mid-level matches mid role)
+        #   Education bonus:    6 points  (bachelor's degree)
+        #   Certification bonus: 2 points (1 AWS cert)
+        #   ────────────────────────────
+        #   Raw total:         68 points
+        #   Final score:       68 → Clamped to [25-95] → 68 (GOOD match)
+        
         final_score = min(95, max(25, 
             skill_score + 
             experience_bonus + 
