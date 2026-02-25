@@ -952,10 +952,31 @@ Provide your analysis in this exact JSON format:
         ))
         
         # ============================================================
+        # ============================================================
         # GENERATE PROFESSIONAL SUMMARY
         # ============================================================
+        # 
+        # The summary tier system provides human-readable assessment
+        # based on the match score. This creates consistent, professional
+        # language for hiring teams.
+        # 
+        # TIER SYSTEM (Score → Assessment → Recommendation):
+        # 85+  → "exceptional"       → Immediate interview (top tier)
+        # 75-84→ "strong"            → Highly recommended (solid hire)
+        # 65-74→ "good"              → Recommended interview (qualified)
+        # 50-64→ "moderate"          → Further review needed (maybe)
+        # <50  → "limited"           → Likely rejection (misfit)
+        # 
+        # Why these thresholds?
+        # - 85+: In top quartile of candidates, clear hire signal
+        # - 75+: Meets most requirements, worth serious consideration
+        # - 65+: Qualified but has gaps, should interview
+        # - 50+: Not great but has some relevant skills
+        # - <50: Not a good fit on paper, skip
+        # ============================================================
         
-        # Determine assessment level
+        # Determine assessment level based on final match score
+        # Each tier has three associated messages for different contexts
         if final_score >= 85:
             assessment = "exceptional"
             recommendation = "strongly recommended as a top candidate for immediate interview"
@@ -972,27 +993,58 @@ Provide your analysis in this exact JSON format:
             assessment = "moderate"
             recommendation = "suitable for further review and evaluation"
             fit_level = "moderate"
-        else:
+        else:  # Below 50
             assessment = "limited"
             recommendation = "may not fully meet current requirements"
             fit_level = "below expectations"
         
-        # Build detailed summary
+        # ============================================================
+        # BUILD MULTI-SECTION SUMMARY
+        # ============================================================
+        # 
+        # The summary is built as a series of sentences covering:
+        # 1. Opening: Overall match percentage and assessment
+        # 2. Skills: Top 5 matched skills
+        # 3. Experience: Years and seniority level
+        # 4. Education: Degree type (if found)
+        # 5. Certifications: Relevant credentials
+        # 6. Gaps: Skills to develop (if minor gaps)
+        # 7. Conclusion: Hiring recommendation
+        # 
+        # This creates a coherent narrative for recruiters: here's the
+        # candidate, here's what's great, here's what needs work, here's
+        # the recommendation.
+        # ============================================================
+        
+        # Build summary as list of sentences to be joined later
         summary_parts = []
         
-        # Opening
-        summary_parts.append(f"Candidate demonstrates {assessment} alignment with the position requirements ({final_score}% overall match).")
+        # 1. OPENING: Overall assessment and score
+        # Example: "Candidate demonstrates strong alignment with the position requirements (78% overall match)."
+        summary_parts.append(
+            f"Candidate demonstrates {assessment} alignment with the position requirements ({final_score}% overall match)."
+        )
         
-        # Skills analysis
+        # 2. SKILLS ANALYSIS: Highlight top matched skills
+        # Shows what the candidate brings to the table
+        # Example: "Strong technical capabilities identified in Python, React, and FastAPI."
         if matched_skills_weighted:
             top_skills = [s['skill'] for s in matched_skills_weighted[:5]]
-            summary_parts.append(f"Strong technical capabilities identified in {', '.join(top_skills[:3])}.")
+            summary_parts.append(
+                f"Strong technical capabilities identified in {', '.join(top_skills[:3])}."
+            )
         
-        # Experience analysis
+        # 3. EXPERIENCE ANALYSIS: Years and career level
+        # Context: how much experience they have and at what level
+        # Example: "Brings 8+ years of professional experience at the mid level."
         if experience_years > 0:
-            summary_parts.append(f"Brings {experience_years}+ years of professional experience at the {detected_level} level.")
+            summary_parts.append(
+                f"Brings {experience_years}+ years of professional experience at the {detected_level} level."
+            )
         
-        # Education
+        # 4. EDUCATION: Degree type if found
+        # Validates academic background
+        # Example: "Educational background includes bachelor's degree."
         if education_level:
             education_display = {
                 'phd': "doctoral degree",
@@ -1000,20 +1052,35 @@ Provide your analysis in this exact JSON format:
                 'bachelors': "bachelor's degree",
                 'associates': "associate degree"
             }
-            summary_parts.append(f"Educational background includes {education_display.get(education_level, education_level)}.")
+            summary_parts.append(
+                f"Educational background includes {education_display.get(education_level, education_level)}."
+            )
         
-        # Certifications
+        # 5. CERTIFICATIONS: Professional credentials
+        # Adds credibility and shows commitment to specialty
+        # Example: "Holds 2 relevant professional certification(s)."
         if found_certifications:
-            summary_parts.append(f"Holds {len(found_certifications)} relevant professional certification(s).")
+            summary_parts.append(
+                f"Holds {len(found_certifications)} relevant professional certification(s)."
+            )
         
-        # Gap analysis
+        # 6. GAP ANALYSIS: Skills to develop
+        # Helpful feedback about what areas need growth
+        # Only shown if gaps are manageable (≤4 missing skills)
+        # Example: "Development opportunities exist in Docker, Kubernetes, and GraphQL."
         if missing_skills_weighted and len(missing_skills_weighted) <= 4:
             missing_skill_names = [s['skill'] for s in missing_skills_weighted[:3]]
-            summary_parts.append(f"Development opportunities exist in {', '.join(missing_skill_names)}.")
+            summary_parts.append(
+                f"Development opportunities exist in {', '.join(missing_skill_names)}."
+            )
         
-        # Conclusion
-        summary_parts.append(f"Overall assessment: {recommendation}.")
+        # 7. CONCLUSION: Final hiring recommendation
+        # Example: "Overall assessment: strongly recommended as a top candidate for immediate interview."
+        summary_parts.append(
+            f"Overall assessment: {recommendation}."
+        )
         
+        # Join all parts into single professional summary paragraph
         summary = " ".join(summary_parts)
         
         # ============================================================
