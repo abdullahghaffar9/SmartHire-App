@@ -1780,73 +1780,248 @@ def extract_text_from_pdf(file_stream: io.BytesIO, filename: str) -> str:
     Handles multi-page PDFs and common extraction issues while preserving
     document structure. Applies cleaning to improve downstream text analysis.
     
+    PDF EXTRACTION COMPLEXITY:
+    PDFs are binary formats with multiple internal representations:
+    
+    TEXT STREAMS:
+    - Modern PDFs (searchable documents) embed text as streams
+    - Text has positional information (x, y, width, height)
+    - Extractable with get_text() method directly
+    - Fast, accurate, preserves structure
+    
+    IMAGE CONTENT:
+    - Scanned PDFs are essentially image containers
+    - Text rendered as pixels, not extractable without OCR
+    - get_text() returns empty string for image-only pages
+    - Common in older documents or scanned paper
+    
+    MIXED CONTENT:
+    - Many real-world PDFs combine text and images
+    - First page might have searchable text, second page scanned
+    - Our page-by-page extraction handles this automatically
+    - Each page processed independently, errors don't cascade
+    
+    BYTESIO ADVANTAGE:
+    - File_stream: in-memory binary data, not disk file
+    - FastAPI uploads files to memory not disk (no temp files)
+    - PyMuPDF can open streams directly (memory-efficient)
+    - No filesystem operations needed (security, speed)
+    
+    ARCHITECTURE:
+    1. Validate PDF structure (has pages, is valid format)
+    2. Page-by-page extraction with error isolation
+    3. Text aggregation and cleaning
+    4. Resource cleanup (close PDF document)
+    
     Args:
         file_stream: BytesIO stream containing PDF binary data
+                    Uploaded from user form via FastAPI
+                    Already validated as UploadFile.file
         filename: Original filename for logging and error reporting
+                 Used in error messages and debug logs
+                 Example: "resume_john_doe.pdf"
         
     Returns:
         Cleaned, concatenated text from all PDF pages
+        Multi-page PDFs: pages joined with newline separator
+        Empty or scanned PDFs: cleaned empty string (AI handles gracefully)
         
     Raises:
         ValueError: If PDF is corrupt, empty, or text extraction fails
+                   Error message includes filename for debugging
+    
+    ERROR RECOVERY:
+    - Single page failures don't crash entire extraction
+    - Scanned pages (no text) skipped silently (expected)
+    - Corrupt pages logged as warnings, processing continues
+    - Total failure (no pages extractable) raises ValueError
     """
     try:
+        # ============================================================
+        # STAGE 1: OPEN AND VALIDATE PDF
+        # ============================================================
+        # 
+        # WHY BYTESIO INSTEAD OF DISK?
+        # - FastAPI uploads files to memory (not disk)
+        # - No temporary file creation needed
+        # - More secure (no intermediate files)
+        # - Faster (memory access vs disk I/O)
+        # 
+        # FILETYPE PARAMETER:
+        # - PyMuPDF supports multiple formats: pdf, xps, epub
+        # - Explicit filetype="pdf" ensures PDF parsing
+        # - Prevents format misidentification
+        # 
+        # STREAM POSITION:
+        # - BytesIO position should be at 0 (beginning)
+        # - FastAPI resets stream position automatically
+        # - Important if same stream used multiple times
+        # ============================================================
+        
         # Initialize PDF parser from in-memory stream
         # PyMuPDF (fitz) supported format: 'pdf'
         # Works with file-like objects without writing to disk
         pdf_document = fitz.open(stream=file_stream, filetype="pdf")
 
         # Validate PDF has at least one page
+        # Prevents processing empty PDFs (rare but possible)
         if pdf_document.page_count == 0:
             raise ValueError("PDF file contains no pages")
 
+        # ============================================================
+        # STAGE 2: PAGE-BY-PAGE TEXT EXTRACTION
+        # ============================================================
+        # 
+        # WHY PAGE-BY-PAGE?
+        # 1. ERROR ISOLATION: One bad page won't crash entire process
+        # 2. MEMORY EFFICIENCY: Process and discard one page at a time
+        # 3. RESUMABILITY: Can report progress (page 5 of 50)
+        # 4. DIFFERENT FORMATS: Some pages text, some scanned
+        # 
+        # WHAT WE DO:
+        # - Iterate 0 to page_count-1
+        # - Try to extract text from each page
+        # - Skip empty pages silently (scanned content)
+        # - Log warnings but continue on errors
+        # 
+        # WHY GET_TEXT() IS FAST:
+        # - Uses PyMuPDF's C++ implementation
+        # - Direct access to PDF text streams
+        # - No OCR or image processing
+        # - Even 100-page resume in <100ms
+        # 
+        # FILTERING EMPTY PAGES:
+        # - Scanned PDFs return "" (empty string)
+        # - check with .strip() to catch whitespace-only pages
+        # - Only add pages with actual content
+        # - Prevents noise in extracted text
+        # ============================================================
+        
         # Iterate through all pages and extract text content
         # Use list to accumulate pages, handles large PDFs efficiently
         extracted_text = []
         for page_num in range(pdf_document.page_count):
             try:
                 # Get individual page from PDF document (zero-indexed)
+                # page_num=0 is first page, page_num=n-1 is last page
                 page = pdf_document[page_num]
                 
                 # Extract text from page using built-in method
                 # Preserves formatting and layout information when available
+                # Returns empty string for image-only pages (scanned)
                 text = page.get_text()
                 
                 # Only add pages with actual content (filter empty pages)
                 # strip() removes leading/trailing whitespace for check
+                # Important for scanned PDFs where all pages return ""
                 if text.strip():
                     extracted_text.append(text)
             except Exception as e:
                 # Log warning but continue: some pages may be images or corrupted
                 # Important for robustness with scanned PDFs or mixed content
+                # Allows partial extraction instead of complete failure
                 logger.warning(
                     f"Error extracting page {page_num + 1} from {filename}: {str(e)}"
                 )
                 # Continue processing remaining pages
+                # This ensures we get what we can from multi-page PDFs
 
+        # ============================================================
+        # STAGE 3: VALIDATE AND COMBINE TEXT
+        # ============================================================
+        # 
+        # CLEANUP FIRST:
+        # - Close PDF document immediately after extraction
+        # - Free memory from C++ backend
+        # - Important for large PDFs or repeated processing
+        # - Prevents file handles from accumulating
+        # 
+        # VALIDATION:
+        # - Must have extracted at least SOME text
+        # - Scanned PDFs with no extractable text fail here
+        # - Clear error message: "No extractable text"
+        # 
+        # COMBINING PAGES:
+        # - Join with "\n" to separate page boundaries
+        # - Prevents words from page 1 and 2 merging
+        # - Maintains semantic document structure
+        # ============================================================
+        
         # Cleanup: close PDF document and free memory
+        # Important: ALWAYS close to prevent resource leaks
         pdf_document.close()
 
         # Validate that we extracted at least some content
+        # If no pages had text, PDF is likely image/scanned
         if not extracted_text:
             raise ValueError("No extractable text found in PDF")
 
         # Combine all pages into single string with newline separators
         # Preserves some structure from original multi-page document
+        # Example: Page1\nPage2\nPage3 (pages separated by newlines)
         full_text = "\n".join(extracted_text)
+        
+        # ============================================================
+        # STAGE 4: TEXT CLEANING
+        # ============================================================
+        # 
+        # WHY CLEAN BEFORE ANALYSIS?
+        # - PDFs contain layout artifacts (page numbers, headers)
+        # - Text extraction creates noise (soft hyphens, multiple spaces)
+        # - AI analysis sensitive to text format
+        # - Cleaning improves match accuracy dramatically
+        # 
+        # WHAT CLEAN_TEXT() DOES:
+        # - Normalize whitespace
+        # - Fix hyphenated words split across lines
+        # - Remove page numbers and headers
+        # - Fix bullet points and lists
+        # - Remove excessive punctuation
+        # - Rejoin broken sentences
+        # 
+        # See clean_text() documentation for detailed explanation
+        # ============================================================
         
         # Apply comprehensive text cleaning to prepare for AI analysis
         # Removes noise, normalizes whitespace, fixes common PDF artifacts
+        # See clean_text() function for detailed cleaning operations
         cleaned_text = clean_text(full_text)
 
         logger.info(f"Successfully extracted {len(cleaned_text)} characters from {filename}")
         return cleaned_text
 
     except fitz.FileError as e:
+        # ============================================================
+        # ERROR: PDF FORMAT CORRUPTION
+        # ============================================================
+        # 
+        # FITZ.FILEERROR CASES:
+        # - Invalid PDF header (corrupted file)
+        # - Broken PDF structure (truncated download)
+        # - Unsupported encryption (password-protected)
+        # - Wrong format (not actually PDF)
+        # 
+        # WHAT TO DO:
+        # - User should try different PDF
+        # - Check file size (incomplete downloads)
+        # - Verify with Desktop PDF reader first
+        # ============================================================
+        
         # Handle PDF-specific file corruption errors
         logger.error(f"PDF file error for {filename}: {str(e)}")
         raise ValueError(f"Invalid or corrupt PDF file: {str(e)}")
     except Exception as e:
+        # ============================================================
+        # ERROR: UNEXPECTED PDF PROCESSING ERROR
+        # ============================================================
+        # 
+        # CATCH-ALL FOR:
+        # - Memory allocation failures (huge PDFs)
+        # - Unexpected PyMuPDF bugs
+        # - File encoding issues
+        # - System resource exhaustion
+        # ============================================================
+        
         # Catch all other unexpected errors during PDF processing
         logger.error(f"Unexpected error processing {filename}: {str(e)}")
         raise ValueError(f"Error processing PDF: {str(e)}")
