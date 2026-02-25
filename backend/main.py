@@ -1537,26 +1537,197 @@ Provide your analysis in this exact JSON format (no other text before or after):
         
         # ============================================================
         # ============================================================
-        # GENERATE PROFESSIONAL SUMMARY
+        # GENERATE PROFESSIONAL SUMMARY & TIER ASSESSMENT
         # ============================================================
         # 
-        # The summary tier system provides human-readable assessment
-        # based on the match score. This creates consistent, professional
-        # language for hiring teams.
+        # WHAT IS THIS SECTION?
+        # Converts numerical score (0-100) into qualitative assessment
+        # that hiring teams can understand and act on.
         # 
-        # TIER SYSTEM (Score → Assessment → Recommendation):
-        # 85+  → "exceptional"       → Immediate interview (top tier)
-        # 75-84→ "strong"            → Highly recommended (solid hire)
-        # 65-74→ "good"              → Recommended interview (qualified)
-        # 50-64→ "moderate"          → Further review needed (maybe)
-        # <50  → "limited"           → Likely rejection (misfit)
+        # WHY TIER SYSTEM?
+        # Scores alone are abstract. "78%" means what?
+        # Tiers provide clear context: "Strong candidate" → "Interview"
+        # Ties score to actionable recommendation for hiring teams
         # 
-        # Why these thresholds?
-        # - 85+: In top quartile of candidates, clear hire signal
-        # - 75+: Meets most requirements, worth serious consideration
-        # - 65+: Qualified but has gaps, should interview
-        # - 50+: Not great but has some relevant skills
-        # - <50: Not a good fit on paper, skip
+        # TIER SYSTEM (Score Range → Assessment → Recommendation):
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER 1: EXCEPTIONAL (85-100)
+        # ────────────────────────────
+        # Score Range: 85+
+        # Assessment: "exceptional"
+        # Fit Level: "excellent"
+        # Recommendation: "Strongly recommended for immediate interview"
+        # 
+        # What this means:
+        #   - Top quartile of candidates for this role
+        #   - Exceeds most or all requirements
+        #   - Very strong technical match
+        #   - Experience and seniority align perfectly
+        #   - Clear "yes, hire if interview goes well" signal
+        #
+        # When to expect:
+        #   - 90%+ of required skills with deep expertise
+        #   - 10+ years relevant experience
+        #   - Senior-level candidate for senior role
+        #   - Advanced degree or multiple certifications
+        #
+        # Hiring action:
+        #   → Schedule interview immediately
+        #   → Treat as priority candidate
+        #   → May trigger competing offer from other companies
+        #
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER 2: STRONG (75-84)
+        # ──────────────────────
+        # Score Range: 75-84
+        # Assessment: "strong"
+        # Fit Level: "very good"
+        # Recommendation: "Highly recommended for interview"
+        # 
+        # What this means:
+        #   - Upper half of candidate pool
+        #   - Clearly qualified for the role
+        #   - Meets core requirements with minor gaps
+        #   - Some nice-to-have skills missing (but not blockers)
+        #   - Good cultural/seniority fit
+        #
+        # When to expect:
+        #   - 70-90% of required skills
+        #   - 5-10 years relevant experience
+        #   - Mid-to-senior level candidate
+        #   - Bachelor's degree or relevant certs
+        #
+        # Hiring action:
+        #   → Schedule interview in normal pipeline
+        #   → This is typical "good candidate" score
+        #   → Worth time investment from hiring team
+        #   → Most hired candidates fall here
+        #
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER 3: GOOD (65-74)
+        # ────────────────────
+        # Score Range: 65-74
+        # Assessment: "good"
+        # Fit Level: "good"
+        # Recommendation: "Recommended for interview consideration"
+        # 
+        # What this means:
+        #   - Qualified but definitely has gaps
+        #   - Candidate can learn missing skills on job
+        #   - Can succeed with mentorship/training budget
+        #   - Trainable gaps, not fundamental mismatches
+        #   - Project potential alongside skills
+        #
+        # When to expect:
+        #   - 50-70% of required skills
+        #   - 3-8 years experience (might be junior + bootcamp)
+        #   - Mid-level or junior for mid role
+        #   - Some education but maybe not relevant degree
+        #
+        # Hiring action:
+        #   → Worth interviewing, but lower priority
+        #   → Ask about learning trajectory in interview
+        #   → Can hire if personality/communication strong
+        #   → May need longer onboarding/mentorship
+        #   → Good pool for entry-to-mid level growth
+        #
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER 4: MODERATE (50-64)
+        # ────────────────────────
+        # Score Range: 50-64
+        # Assessment: "moderate"
+        # Fit Level: "moderate"
+        # Recommendation: "Further review and evaluation needed"
+        # 
+        # What this means:
+        #   - Real skill gaps exist
+        #   - Not obviously qualified from resume alone
+        #   - Might shine in interview (resume doesn't tell all)
+        #   - Or might need different role with lower bar
+        #   - Risks outweigh benefits for most companies
+        #
+        # When to expect:
+        #   - 30-50% of required skills
+        #   - Limited experience (0-3 years) or seniority mismatch
+        #   - Junior candidate for senior role
+        #   - No relevant education; bootcamp/self-taught
+        #   - OR different specialization (iOS dev for backend role)
+        #
+        # Hiring action:
+        #   → Interview only if exceptional unique strength
+        #   → Or if willing to train on technical areas
+        #   → Focus interview on learning ability
+        #   → Consider different role (different requirements)
+        #   → Risky hire: high onboarding cost
+        #
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER 5: LIMITED (<50)
+        # ───────────────────
+        # Score Range: 0-49 (but minimum score is 25)
+        # Assessment: "limited"
+        # Fit Level: "below expectations"
+        # Recommendation: "May not meet current requirements"
+        # 
+        # What this means:
+        #   - Significant skills misalignment
+        #   - Unlikely to succeed without major retraining
+        #   - Resume shows poor fit to job description
+        #   - Wrong specialization or experience level
+        #   - Default rejection unless special circumstances
+        #
+        # When to expect:
+        #   - <30% of required skills
+        #   - No relevant experience
+        #   - Junior for very senior role
+        #   - Different field entirely (marketer for engineering role)
+        #   - Even with floor (min 25), clear misfit
+        #
+        # Hiring action:
+        #   → Polite rejection recommended
+        #   → Unless candidate has something exceptional not in resume
+        #   → High risk, high training cost
+        #   → Move to bottom of candidate pool
+        #   → Consider for different/easier role if applicable
+        #
+        # ═════════════════════════════════════════════════════════════
+        # 
+        # TIER THRESHOLDS RATIONALE:
+        # ─────────────────────────
+        # Why 85 for exceptional (not 90)?
+        #   - Leaves room for unknowns (secret strength, interview chemistry)
+        #   - 85-95 is "very strong" range, still realistic not artificial
+        #   - Prevents overconfidence: even 85 might not be perfect hire
+        #
+        # Why 75 for strong (not 80)?
+        #   - 75 = "B grade" which is good but not excellent
+        #   - Aligns with "75% of required" skill threshold
+        #   - Matches industry standard evaluation benchmarks
+        #   - Feels like "real qualified" not just "barely qualified"
+        #
+        # Why 65 as lower "yes" threshold?
+        #   - 65 = "C+ grade" which is viable if trainable
+        #   - Below 65 risk exceeds benefit for most companies
+        #   - Implies "has core but needs training"
+        #   - Interview can validate if trainability is strong
+        #
+        # Why 50 not 60 for moderate?
+        #   - 50 = "D grade" which is barely passing
+        #   - Clear "maybe not" vs "definitely not"
+        #   - Room for exceptional interviewer impression
+        #   - But default stance: needs strong interview to advance
+        #
+        # Why <50 means rejection (with 25 floor)?
+        #   - <50 = "F grade" which is failing
+        #   - Default stance: no, unless special case
+        #   - Floor of 25 prevents 0% scores (everyone has value)
+        #   - But 25-49 is clear "likely rejection" category
+        # ═════════════════════════════════════════════════════════════
+        # 
         # ============================================================
         
         # Determine assessment level based on final match score
@@ -1583,27 +1754,39 @@ Provide your analysis in this exact JSON format (no other text before or after):
             fit_level = "below expectations"
         
         # ============================================================
-        # BUILD MULTI-SECTION SUMMARY
+        # BUILD MULTI-SECTION PROFESSIONAL SUMMARY
         # ============================================================
         # 
-        # The summary is built as a series of sentences covering:
-        # 1. Opening: Overall match percentage and assessment
-        # 2. Skills: Top 5 matched skills
-        # 3. Experience: Years and seniority level
-        # 4. Education: Degree type (if found)
-        # 5. Certifications: Relevant credentials
-        # 6. Gaps: Skills to develop (if minor gaps)
-        # 7. Conclusion: Hiring recommendation
+        # SUMMARY PURPOSE:
+        # Create coherent narrative for hiring teams about candidate fit
+        # Not just a score, but a story: "Here's who they are"
         # 
-        # This creates a coherent narrative for recruiters: here's the
-        # candidate, here's what's great, here's what needs work, here's
-        # the recommendation.
+        # SUMMARY STRUCTURE:
+        # Opening → Key strengths → Experience → Education → Gaps → Recommendation
+        # 
+        # This mirrors how recruiters think:
+        # 1. "What's the overall fit?" (opening)
+        # 2. "What can they do?" (strengths)
+        # 3. "How experienced are they?" (experience info)
+        # 4. "How educated are they?" (education level)
+        # 5. "What do they lack?" (gaps and growth areas)
+        # 6. "Should I interview them?" (recommendation)
+        # 
+        # SENTENCE VARIETY:
+        # - Not templated (feels personalized)
+        # - Varies based on actual candidate data
+        # - Uses names of specific skills found
+        # - Acknowledges both strengths and gaps
+        # - Concludes with action-oriented recommendation
+        # 
         # ============================================================
         
         # Build summary as list of sentences to be joined later
         summary_parts = []
         
-        # 1. OPENING: Overall assessment and score
+        # 1. OPENING: Overall assessment and match percentage
+        # Immediately tells recruiter: "Is this candidate good?"
+        # Uses assessment tier (weak/good/strong/exceptional)
         # Example: "Candidate demonstrates strong alignment with the position requirements (78% overall match)."
         summary_parts.append(
             f"Candidate demonstrates {assessment} alignment with the position requirements ({final_score}% overall match)."
@@ -1611,6 +1794,7 @@ Provide your analysis in this exact JSON format (no other text before or after):
         
         # 2. SKILLS ANALYSIS: Highlight top matched skills
         # Shows what the candidate brings to the table
+        # Uses actual skills found to feel personalized
         # Example: "Strong technical capabilities identified in Python, React, and FastAPI."
         if matched_skills_weighted:
             top_skills = [s['skill'] for s in matched_skills_weighted[:5]]
