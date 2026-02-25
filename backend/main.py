@@ -584,65 +584,127 @@ Provide your analysis in this exact JSON format:
                         })
         
         # ============================================================
-        # EXPERIENCE LEVEL DETECTION
+        # EXPERIENCE LEVEL DETECTION - Extract Years & Seniority
         # ============================================================
         
-        # Extract years of experience
+        # Initialize experience counter (used if not found in resume)
         experience_years = 0
+        
+        # Multiple regex patterns to catch different ways years are expressed
+        # Candidates write experience in different ways:
+        # - "10 years of experience"
+        # - "10+ years experience"
+        # - "experience: 10 years"
+        # - "10 years" (standalone)
         experience_patterns = [
+            # Pattern 1: "N years of experience" or "N yrs experience"
+            # Captures: "10 years of experience", "5+ yrs experience"
             r'(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?experience',
+            
+            # Pattern 2: "experience: N years" or "experience: N+"
+            # Captures: "experience: 15 years", "experience: 20+"
             r'experience[:\s]+(\d+)\+?\s*(?:years?|yrs?)',
+            
+            # Pattern 3: Standalone number with years indicator
+            # Catches any "N years" or "N yrs" not caught above
             r'(\d+)\+?\s*(?:years?|yrs?)',
         ]
         
+        # Try each pattern in order (most specific first)
+        # Use the first match found
         for pattern in experience_patterns:
             match = re.search(pattern, resume_lower)
             if match:
+                # Extract the number (group 1 is the captured integer)
                 experience_years = int(match.group(1))
                 break
         
-        # Detect seniority level from titles
+        # ============================================================
+        # SENIORITY LEVEL DETECTION - Analyze Job Titles
+        # ============================================================
+        
+        # Keywords indicating professional level/seniority
+        # Mapped to three tiers: junior (entry), mid (experienced), senior (leadership)
         seniority_keywords = {
+            # Senior leadership roles: decision makers, principals, architects
             'senior': ['senior', 'sr.', 'lead', 'principal', 'staff', 'architect'],
+            
+            # Mid-level: experienced professionals, level 2+ engineers
             'mid': ['mid-level', 'intermediate', 'engineer ii', 'developer ii'],
+            
+            # Junior/Entry: fresh graduates, junior roles, associate positions
             'junior': ['junior', 'jr.', 'entry', 'associate', 'graduate']
         }
         
-        detected_level = 'mid'  # Default
+        # Default to mid-level if no keywords found in resume
+        # Assumes candidates are mid-level unless proven otherwise
+        detected_level = 'mid'
+        
+        # Scan resume for seniority keywords
+        # First match wins (order matters in dictionary)
         for level, keywords in seniority_keywords.items():
+            # Check if any keyword from this level appears in the lowercase resume
             if any(keyword in resume_lower for keyword in keywords):
                 detected_level = level
                 break
         
         # ============================================================
-        # EDUCATION LEVEL DETECTION
+        # EDUCATION LEVEL DETECTION - Identify Degree Type
         # ============================================================
         
+        # Education qualification keywords mapped by degree level
+        # Higher education = higher weight in analysis
         education_keywords = {
+            # Doctoral degrees: PhD, D.Sc., MD, DDS
             'phd': ['ph.d', 'phd', 'doctorate', 'doctoral'],
+            
+            # Master's degrees: MS, MA, MBA, MSc
             'masters': ['master', 'ms ', 'm.s.', 'msc', 'm.sc', 'mba'],
+            
+            # Bachelor's degrees: BS, BA, BSc, B.Sc
             'bachelors': ['bachelor', 'bs ', 'b.s.', 'bsc', 'b.sc', 'ba ', 'b.a.'],
+            
+            # Associate degrees: AA, AS, A.S.
             'associates': ['associate', 'as ', 'a.s.']
         }
         
+        # Default: None (no degree found)
+        # Will be set if any keyword matches
         education_level = None
+        
+        # Search for education keywords, highest degree level wins
+        # Order matters: PhD checked before Masters, etc.
         for level, keywords in education_keywords.items():
             if any(keyword in resume_lower for keyword in keywords):
                 education_level = level
                 break
         
         # ============================================================
-        # CERTIFICATION DETECTION
+        # CERTIFICATION DETECTION - Find Professional Credentials
         # ============================================================
         
+        # Common industry certifications that boost candidate credibility
+        # Grouped by field: Cloud (AWS, Azure, GCP), Project Management (PMP, CSM),
+        # Security (CISSP, Sec+), Database/DevOps (Oracle, Kubernetes)
         common_certifications = [
+            # Cloud platform certifications (high value in DevOps/Cloud roles)
             'aws certified', 'azure certified', 'gcp certified',
+            
+            # Project management certifications
             'pmp', 'scrum master', 'csm', 'safe',
+            
+            # Security certifications (high value in security roles)
             'cissp', 'security+', 'ceh',
+            
+            # Database and platform certifications
             'oracle certified', 'microsoft certified',
-            'ckad', 'cka'  # Kubernetes
+            
+            # Kubernetes certifications (high value in DevOps/K8s roles)
+            'ckad', 'cka'
         ]
         
+        # Extract all found certifications from resume
+        # List comprehension: for each cert, if it's in resume, include it
         found_certifications = [cert for cert in common_certifications if cert in resume_lower]
         
         # ============================================================
