@@ -456,36 +456,114 @@ export default function App() {
   
   /**
    * Submit resume and job description for AI analysis
-   * Sends multipart form data to backend
-   * Handles loading states and error reporting
-   * Uses async/await for clean promise handling
+   * Sends multipart form data to backend with proper validation
+   * Handles loading states, error reporting, and result storage
+   * 
+   * FLOW:
+   * 1. Validate inputs (resume file + job description)
+   * 2. Set loading state (show spinner, disable submit)
+   * 3. Create FormData with file and text
+   * 4. Send POST to /analyze-resume endpoint
+   * 5. Store results or show error
+   * 6. Reset loading state
+   * 
+   * WHY ASYNC/AWAIT?
+   * - Cleaner than .then().catch() chains
+   * - Can use try/catch for error handling
+   * - Code reads top-to-bottom like synchronous
+   * - try/catch/finally covers all cases
+   * 
+   * ERROR HANDLING STRATEGY:
+   * - try: Normal operation (fetch data, parse response)
+   * - catch: Network error or HTTP error (5xx, 4xx)
+   * - finally: Always runs (cleanup, reset state)
+   * 
+   * FORMDATA:
+   * - Multipart/form-data encoding for files
+   * - Alternative to application/json
+   * - Required by HTTP spec for file uploads
+   * - Browser automatically handles encoding
+   * 
+   * VALIDATION:
+   * - resumeFile: must be set (user selected file)
+   * - jobDescription.trim(): must have text (not just spaces)
+   * - Both checked before sending request
+   * - Prevents wasting resources on invalid requests
+   * 
+   * AXIOS CONFIGURATION:
+   * - POST request to {API_URL}/analyze-resume
+   * - Sends FormData (browser serializes automatically)
+   * - Headers['Content-Type'] = 'multipart/form-data'
+   * - Axios auto-adds boundary for FormData
+   * 
+   * RESPONSE STRUCTURE:
+   * - response.data = entire response body
+   * - response.data.ai_analysis = the analysis object
+   * - ai_analysis contains:
+   *   * match_score: 0-100 integer
+   *   * key_strengths: string array of top skills
+   *   * missing_skills: string array of gaps
+   *   * summary: professional assessment text
+   *   * email_draft: ready-to-send email template
+   * 
+   * ERROR RESPONSE:
+   * - err.response: HTTP error response (4xx, 5xx)
+   * - err.response.data: response body from server
+   * - err.response.data.detail: specific error message (FastAPI)
+   * - err.message: network error (no response received)
+   * 
+   * STATE UPDATES:
+   * - setAnalysisResult: store for UI rendering
+   * - setLoading: false to re-enable form
+   * - setError: user-visible error message
+   * 
+   * FINALLY BLOCK:
+   * - Guarantees loading state reset
+   * - Runs regardless of success/error
+   * - Important: re-enables submit button
+   * - If forgotten: button stays disabled "forever"
    */
   const analyzeCandidate = async () => {
     // Validate required inputs before proceeding
     // Both resume file and job description are mandatory
+    // Without both: no analysis can be performed
     if (!resumeFile || !jobDescription.trim()) {
       // Use trim() to reject whitespace-only job descriptions
+      // "    " (4 spaces) is not a valid job description
       setError('Please upload a resume and enter a job description');
+      // Return early: don't proceed to API call
       return;
     }
 
     // Set loading state to show spinner/disable button
+    // UI responds: submit button shows "Analyzing..." spinner
+    // Form inputs: disabled to prevent duplicate submissions
     setLoading(true);
     // Clear any previous errors from earlier attempts
+    // Prevents confusing error messages from old requests
     setError(null);
 
     try {
       // Create FormData for multipart/form-data submission
       // Required for file uploads with modern Fetch/Axios APIs
+      // FormData is a browser API for creating form data
+      // Automatically encodes file binary data and text fields
       const formData = new FormData();
+      
       // Append file object (browser handles serialization)
+      // 'file' must match backend parameter name
+      // resumeFile is the File object from input/drag-drop
+      // FormData keeps reference to file data in memory
       formData.append('file', resumeFile);
+      
       // Append job description text field
+      // 'job_description' must match backend parameter name
+      // This is the textarea content entered by user
       formData.append('job_description', jobDescription);
 
-      // Send to backend API with proper content-type for file upload
+      // Send to backend API with proper headers for file upload
       // axios.post automatically sets Content-Type when FormData is used
-      // Backend endpoint expects multipart/form-data
+      // Backend endpoint expects multipart/form-data with boundary
       const response = await axios.post(
         `${API_URL}/analyze-resume`,
         formData,
@@ -493,30 +571,45 @@ export default function App() {
           headers: {
             // Explicitly set multipart/form-data content type
             // Axios includes boundary automatically when FormData is detected
+            // Boundary is random string that separates form fields
+            // Example: ----WebKitFormBoundary7MA4YWxkTrZu0gW
             'Content-Type': 'multipart/form-data',
           },
         }
       );
 
       // Extract and store analysis results from successful response
-      // response.data.ai_analysis contains: match_score, key_strengths, etc
+      // response.data = entire response body (JSON object)
+      // response.data.ai_analysis = the analysis portion
+      // Contains: match_score, key_strengths, missing_skills, summary, email_draft
       setAnalysisResult(response.data.ai_analysis);
       // Clear any error messages on success
+      // Prevents showing old errors under new results
       setError(null);
     } catch (err) {
       // Log error to browser console for debugging
+      // Developers can inspect Network tab to see response
       console.error('Error:', err);
+      
       // Show user-friendly error message
-      // Try backend error message first, fall back to generic message
+      // Priority:
+      // 1. Backend-provided error message (err.response.data.detail)
+      // 2. Generic fallback message
+      // Prevents showing raw technical errors to users
       setError(
         err.response?.data?.detail ||
         'Failed to analyze resume. Please try again.'
       );
+      
       // Clear previous analysis result on error
+      // Prevents showing old results after new error
+      // User sees: error message, no stale results
       setAnalysisResult(null);
     } finally {
       // Always reset loading state, regardless of success/failure
       // finally block executes in both success and error cases
+      // Critical: re-enables submit button and form inputs
+      // Without this: button stays disabled after error
       setLoading(false);
     }
   };
