@@ -612,37 +612,84 @@ Provide your analysis in this exact JSON format:
         }
         
         # ============================================================
-        # SKILL MATCHING WITH WEIGHTED SCORING
+        # ============================================================
+        # SKILL MATCHING WITH WEIGHTED SCORING ALGORITHM
+        # ============================================================
+        # 
+        # ALGORITHM OVERVIEW:
+        # This section performs the CORE matching logic between
+        # job description and resume using weighted skill categories.
+        # 
+        # MATCHING PROCESS (3 steps):
+        # 1. Extract all skills mentioned in job description
+        # 2. Check if resume contains those skills
+        # 3. Sum weights for matched and required skills
+        # 
+        # DATA STRUCTURES:
+        # - matched_skills_weighted: skills found in both job + resume
+        #   Example: ['Python', 'React', 'PostgreSQL']
+        # - missing_skills_weighted: skills in job but not resume
+        #   Example: ['Kubernetes', 'GraphQL']
+        # - total_weight: sum of ALL required skills from job
+        # - matched_weight: sum of weights for skills actually matched
+        # 
+        # CALCULATION:
+        # Skill Score = (matched_weight / total_weight) × 60 points
+        # 
+        # EXAMPLE:
+        # Job description mentions:
+        #   - Python (weight 1.5) ✓ Found in resume
+        #   - React (weight 1.3) ✗ Not found in resume
+        #   - FastAPI (weight 1.4) ✓ Found in resume
+        # 
+        # Calculation:
+        #   matched_weight = 1.5 + 1.4 = 2.9
+        #   total_weight = 1.5 + 1.3 + 1.4 = 4.2
+        #   skill_score = (2.9 / 4.2) × 60 = 41.4 → 41 points
         # ============================================================
         
-        matched_skills_weighted = []
-        missing_skills_weighted = []
-        total_weight = 0
-        matched_weight = 0
+        # Initialize accumulators for skill matching
+        matched_skills_weighted = []    # Skills found in both
+        missing_skills_weighted = []    # Skills required but missing
+        total_weight = 0                # Sum of all required skills
+        matched_weight = 0              # Sum of matched skills
         
+        # MAIN LOOP: Iterate through all skill categories
         for category, data in skill_categories.items():
+            # Extract skills list and weight multiplier for this category
             skills = data['skills']
             weight = data['weight']
             
+            # INNER LOOP: Check each individual skill in category
             for skill in skills:
-                # Check if skill is required in job description
+                # FILTER PHASE: Only process skills mentioned in job
+                # If this skill isn't required, we skip it
+                # (candidate can have extra skills we don't care about)
                 if skill in job_lower:
+                    # This skill is REQUIRED by the job
+                    # Add its weight to total possible points
                     total_weight += weight
                     
-                    # Check if candidate has the skill
+                    # MATCHING PHASE: Check if resume mentions this skill
                     if skill in resume_lower:
+                        # ✓ MATCH: Candidate has the required skill!
+                        # Store for scoring and display
                         matched_skills_weighted.append({
-                            'skill': skill.title(),
-                            'category': category.replace('_', ' ').title(),
-                            'weight': weight
+                            'skill': skill.title(),                        # Human readable name
+                            'category': category.replace('_', ' ').title(), # E.g. "Programming Languages"
+                            'weight': weight                              # For debugging and ranking
                         })
+                        # Add weight to matched total
                         matched_weight += weight
                     else:
+                        # ✗ GAP: Skill required but candidate missing it
+                        # This becomes a development opportunity for candidate
                         missing_skills_weighted.append({
                             'skill': skill.title(),
                             'category': category.replace('_', ' ').title(),
                             'weight': weight
                         })
+                        # Note: We don't add to matched_weight (it's a gap)
         
         # ============================================================
         # EXPERIENCE LEVEL DETECTION - Extract Years & Seniority
