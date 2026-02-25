@@ -567,37 +567,144 @@ Provide your analysis in this exact JSON format (no other text before or after):
         # COMPREHENSIVE SKILL DATABASE (60+ CATEGORIES)
         # ============================================================
         # 
-        # WEIGHTING SYSTEM:
-        # Each skill category has a weight multiplier that increases impact
-        # on the overall match score. Higher weight = more importance.
+        # WEIGHTING SYSTEM EXPLAINED:
+        # Each skill belongs to a category with a MULTIPLIER weight that
+        # controls how much it affects the match score. This mirrors how
+        # real recruiters think: not all skills are equally important.
         # 
-        # WEIGHT VALUES:
-        #   1.5 = Critical (must-have or very high demand)
-        #   1.4 = Very Important (specialized expertise)
-        #   1.3 = Important (commonly required)
-        #   1.2 = Fairly Important (valuable but not critical)
-        #   1.1 = Moderately Important (helpful to have)
-        #   1.0 = Standard (baseline importance)
+        # WEIGHT SCALE:
+        #   1.5 = CRITICAL (must-have or extremely high demand)
+        #         Examples: Python for data science, React for frontend
+        #         Strategy: If job mentions these, candidate MUST have them
+        #   
+        #   1.4 = VERY IMPORTANT (specialized expertise, hard to find)
+        #         Examples: DevOps expertise, system design knowledge
+        #         Strategy: Highly valuable, candidates with these stand out
+        #   
+        #   1.3 = IMPORTANT (commonly required, valuable)
+        #         Examples: Database knowledge, API design
+        #         Strategy: Most good candidates have these
+        #   
+        #   1.2 = FAIRLY IMPORTANT (valuable but not critical)
+        #         Examples: Docker, security awareness
+        #         Strategy: Nice to have, differentiator between good and great
+        #   
+        #   1.1 = MODERATELY IMPORTANT (helpful, soft skills)
+        #         Examples: Leadership, teamwork, testing mindset
+        #         Strategy: Matters but not a dealbreaker
+        #   
+        #   1.0 = STANDARD (baseline expectation in 2024)
+        #         Examples: Git, Agile methodologies
+        #         Strategy: Almost everyone has these, expected
+        # 
+        # WHY THESE VALUES?
+        # The weights reflect 2024 job market demand and importance:
+        #
+        # PROGRAMMING LANGUAGES (1.5):
+        #   - Foundation of ALL software development
+        #   - Everything else builds on programming skills
+        #   - High barrier to entry (requires learning)
+        #   - Direct predictor of coding ability
+        #
+        # DATA SCIENCE (1.5):
+        #   - Cutting edge, high demand, hard to find
+        #   - Specialized knowledge beyond normal programming
+        #   - Commands premium salaries
+        #   - Critical for AI/ML roles
+        #
+        # BACKEND FRAMEWORKS (1.4):
+        #   - Core to server-side architecture
+        #   - Frameworks represent years of learning
+        #   - Examples: FastAPI, Django, Spring Boot, Node.js
+        #   - Specialized expertise valuable in market
+        #
+        # CLOUD PLATFORMS (1.4):
+        #   - AWS, Google Cloud, Azure dominate modern infrastructure
+        #   - Replacing traditional on-premise deployment
+        #   - Expensive to learn (requires trial accounts)
+        #   - Very high market demand
+        #
+        # FRONTEND FRAMEWORKS (1.3):
+        #   - React, Vue, Angular are major parts of web dev
+        #   - Specialized but more common than backend
+        #   - Good frontend devs harder to find than backend
+        #   - Not quite as critical as full backend stack
+        #
+        # DATABASES (1.3):
+        #   - Data persistence critical to every application
+        #   - SQL vs NoSQL represents different paradigms
+        #   - Every developer needs database knowledge
+        #   - Mix of relational and document databases
+        #
+        # ARCHITECTURE (1.3):
+        #   - System design shows senior-level thinking
+        #   - REST, GraphQL, microservices are paradigms
+        #   - Harder to fake than specific tool knowledge
+        #   - Differentiates architects from junior devs
+        #
+        # DEVOPS_TOOLS (1.2):
+        #   - Docker, Kubernetes, CI/CD essential but specialized
+        #   - Infrastructure matters but not as much as code
+        #   - DevOps is separate specialized track
+        #   - Not every developer needs deep DevOps knowledge
+        #
+        # SECURITY (1.2):
+        #   - Increasingly critical as breaches become costly
+        #   - Every developer should have security awareness
+        #   - Specialized security engineers different role
+        #   - OAuth, JWT, encryption are specific patterns
+        #
+        # TESTING (1.1):
+        #   - Quality mindset matters but not always explicit in resume
+        #   - Jest, pytest are tools, not core competency
+        #   - Good developers write tests, bad ones don't
+        #   - Soft skill with hard tool names
+        #
+        # SOFT_SKILLS (1.1):
+        #   - Leadership, communication, teamwork matter
+        #   - Hard to verify from resume alone
+        #   - Interviews better assess soft skills
+        #   - Separator between "great code" and "great engineer"
+        #
+        # VERSION_CONTROL (1.0):
+        #   - Git is universal in 2024 (nearly baseline)
+        #   - Almost every developer uses it
+        #   - Not a differentiator anymore
+        #   - Expected skill, not distinguishing one
+        #
+        # PROJECT_MANAGEMENT (1.0):
+        #   - Agile, Scrum, Kanban widely used
+        #   - More about team than individual
+        #   - Standardized across industry
+        #   - Nice to have but not critical
+        #
+        # METHODOLOGIES (1.0):
+        #   - CI/CD, design patterns, clean code
+        #   - Expected from professional developers
+        #   - Foundation not differentiator
+        #   - Everyone should know these
         # 
         # EXAMPLE CALCULATION:
-        #   If job asks for "Python + JavaScript + React":
-        #     - Python match: 1 * 1.5 = 1.5 weighted points
-        #     - JavaScript match: 1 * 1.5 = 1.5 weighted points
-        #     - React match: 1 * 1.3 = 1.3 weighted points
-        #     - Total matched weight: 4.3
-        #     - Total possible weight: 4.3
-        #     - Skill score: 4.3 / 4.3 * 60 = 60 points
+        # ═══════════════════════════════════════════════════════════
+        # Job postings asks for: "Python, React, PostgreSQL, Docker"
+        #
+        # Skill matching weights:
+        #   Python (programming_languages):  1.5 × 1 = 1.5 ✓ found
+        #   React (frontend_frameworks):     1.3 × 1 = 1.3 ✓ found
+        #   PostgreSQL (databases):          1.3 × 1 = 1.3 ✓ found
+        #   Docker (devops_tools):           1.2 × 1 = 1.2 ✓ found
+        #
+        # Weighted calculation:
+        #   matched_weight = 1.5 + 1.3 + 1.3 + 1.2 = 5.3
+        #   total_weight = 1.5 + 1.3 + 1.3 + 1.2 = 5.3 (all found)
+        #   skill_score = (5.3 / 5.3) × 60 = 60 points
+        #
+        # If resume was missing Docker:
+        #   matched_weight = 1.5 + 1.3 + 1.3 = 4.1
+        #   total_weight = 5.3
+        #   skill_score = (4.1 / 5.3) × 60 = 46 points
+        # ═══════════════════════════════════════════════════════════
         # 
-        # WHY THESE WEIGHTS?
-        # - Programming languages (1.5): Foundation of all software development
-        # - Data science (1.5): High-demand, specialized skills
-        # - Backend frameworks (1.4): Core to server-side architecture
-        # - Cloud platforms (1.4): Essential in modern DevOps
-        # - Frontend frameworks (1.3): UI is major part of web development
-        # - Backend frameworks (1.3): Database management is critical
-        # - DevOps tools (1.2): Infrastructure matters but not as much as coding
-        # - Security (1.2): Critical for safe applications
-        # - Version control (1.0): Almost universal, baseline expectation
         # ============================================================
         
         skill_categories = {
