@@ -49,30 +49,82 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  *
  * Displays an animated number counter that increments from 0 to a target value.
  * Used for showing match score percentages with smooth animation.
- * Creates a visual impact when revealing analysis results.
+ * Creates engaging visual impact when revealing analysis results.
+ * 
+ * VISUAL PURPOSE:
+ * When user sees results, the score animates from 0 → final value
+ * Example: 0 → 1 → 2 → 3 ... → 85 over 2 seconds
+ * Creates anticipation and draws attention to the key metric
+ * More engaging than static text appearing instantly
+ * 
+ * TECHNICAL APPROACH:
+ * Uses requestAnimationFrame (raf) for smooth, browser-optimized animation
+ * NOT setInterval/setTimeout which can be jerky or miss frames
+ * 
+ * 60 FPS ANIMATION:
+ * - Modern monitors refresh at 60Hz (60 times per second)
+ * - Each frame lasts ~16.67 milliseconds
+ * - requestAnimationFrame called every frame (when browser ready)
+ * - Linear interpolation calculates current count at each frame
+ * 
+ * MATH:
+ * elapsed = current_time - start_time
+ * progress = elapsed / (duration × 1000)  // 0.0 to 1.0
+ * current_count = progress × target_value  // interpolate
+ * 
+ * Example (targeting 85 over 2 seconds):
+ * Frame 1 (16ms): progress = 16/(2000) = 0.008 → count = 0.68
+ * Frame 2 (33ms): progress = 33/(2000) = 0.0165 → count = 1.4
+ * Frame 3 (50ms): progress = 50/(2000) = 0.025 → count = 2.1
+ * ...
+ * Frame 120 (2000ms): progress = 2000/(2000) = 1.0 → count = 85 (done)
+ * 
+ * CLEANUP:
+ * - When animation completes (progress >= 1.0): stop loop
+ * - When component unmounts: cancelAnimationFrame prevents memory leak
+ * - useEffect cleanup function ensures proper resource management
+ * 
+ * BROWSER OPTIMIZATION:
+ * - RAF pauses when tab hidden (saves CPU on background tabs)
+ * - Syncs with screen refresh rate (no tearing or jank)
+ * - Uses native browser timing (more accurate than JS timers)
+ * - Better battery life on mobile devices
  *
  * Props:
  *   value (number) - Target value to animate to
- *               Range: typically 0-100 for match scores
- *               Example: 85
+ *                   Range: typically 0-100 for match scores
+ *                   Example: 85
  *   
  *   duration (number) - Animation duration in seconds (default: 2)
  *                      Controls speed of counter animation
  *                      Example: 2 (animates over 2 seconds)
+ *                      Recommendation: 1.5-2.5s feels natural
  *
- * How it works:
- *   1. Starts at count = 0 on mount
- *   2. Uses requestAnimationFrame for smooth 60fps animation
- *   3. Linearly interpolates from 0 to target value over duration
- *   4. Updates state every ~16ms (at 60fps)
- *   5. Cleans up animation frame when complete or unmounted
+ * State:
+ *   count (number) - Current animated count value
+ *                   Starts: 0
+ *                   Ends: value (passed prop)
+ *                   Updated: every ~16ms at 60fps
+ *
+ * Return Value:
+ *   Displays: Math.round(count) as visible number
+ *            Rounding prevents decimal display (shows integers)
  *
  * Example Usage:
  *   <AnimatedCounter value={85} duration={2} />
- *   // Animates from 0 → 85 over 2 seconds
+ *   // Displays: 0 → 85 animating over 2 seconds
  *   
  *   <AnimatedCounter value={92} />
  *   // Uses default 2 second duration
+ *   
+ *   <AnimatedCounter value={45} duration={3} />
+ *   // Slower animation, good for emphasis
+ *
+ * Performance Consider:
+ *   - Lightweight: only updates single number state
+ *   - RAF efficient: automatic frame skipping when needed
+ *   - Cleanup proper: cancelAnimationFrame prevents memory leak
+ *   - Good for: scores, counters, duration-based animations
  */
 const AnimatedCounter = ({ value, duration = 2 }) => {
   // Local state for animated count value
@@ -85,18 +137,30 @@ const AnimatedCounter = ({ value, duration = 2 }) => {
    * Runs animation on component mount and when value/duration change.
    * Uses requestAnimationFrame for browser-optimized animation timing.
    * 
-   * Animation Method:
-   *   - requestAnimationFrame: Browser asks "when would you like to animate?"
-   *   - Syncs with monitor refresh rate (typically 60fps = ~16.67ms per frame)
-   *   - More efficient than setInterval: pauses when tab not visible
-   *   - Provides timestamp parameter for precise timing
+   * WHY useEffect?
+   * - Hook into component lifecycle at right time (mount)
+   * - Re-run when props change (value, duration)
+   * - Cleanup on unmount (cancel animation)
+   * 
+   * requestAnimationFrame (raf) vs Alternatives:
+   * ✓ RAF: Syncs with monitor refresh, pauses on hidden tab, smooth
+   * ✗ setInterval: Can miss frames, not pause on hidden, jankier
+   * ✗ setTimeout: Not optimized for animation, harder to time
+   * 
+   * Animation Callback Signature:
+   *   callback(timestamp) - called by browser when ready to render
+   *   timestamp - DOMHighResTimeStamp (milliseconds since page load)
+   *              Very precise (microsecond accuracy)
+   *              Used to calculate elapsed time
    */
   React.useEffect(() => {
     // startTime: captured on first animation frame
     // Used to calculate elapsed time in subsequent frames
+    // Will be set when first RAF callback fires
     let startTime;
     // animationId: returned by requestAnimationFrame
     // Stored to cancel animation on cleanup/unmount
+    // Used in cleanup function: cancelAnimationFrame(animationId)
     let animationId;
 
     /**
