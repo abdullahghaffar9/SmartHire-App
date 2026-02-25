@@ -379,9 +379,27 @@ class GeminiAIClient:
                 # ============================================================
                 # BUILD ANALYSIS PROMPT FOR GEMINI
                 # ============================================================
+                # 
+                # PROMPT STRUCTURE:
+                # 1. Clear instruction: "Analyze resume against job requirements"
+                # 2. Job description first (context for analysis)
+                # 3. Resume text second (subject being analyzed)
+                # 4. Explicit JSON format requirement
+                # 5. Field specifications (match_score 0-100, max 3 items per list)
+                #
+                # WHY THIS STRUCTURE?
+                # - Clear instruction: Sets task boundaries
+                # - Job description first: Establishes evaluation criteria
+                # - Resume second: Subject of evaluation
+                # - JSON format: Ensures parseable output
+                # - Field specs: Limits response size, ensures consistency
+                #
+                # GEMINI DIFFERENCES:
+                # Gemini often includes preamble/explanation text before JSON.
+                # Unlike Groq with system message, Gemini needs regex extraction.
+                # Gemini is also slightly slower (~5-10s) but higher quality.
+                # ============================================================
                 
-                # Construct a detailed prompt that asks for structured JSON output
-                # This ensures consistent, parseable responses
                 prompt = f"""Analyze this resume against the job requirements and provide a structured assessment.
 
 JOB DESCRIPTION:
@@ -390,7 +408,7 @@ JOB DESCRIPTION:
 RESUME:
 {resume_text}
 
-Provide your analysis in this exact JSON format:
+Provide your analysis in this exact JSON format (no other text before or after):
 {{
     "match_score": <number 0-100>,
     "key_strengths": ["strength1", "strength2", "strength3"],
@@ -402,6 +420,21 @@ Provide your analysis in this exact JSON format:
                 # ============================================================
                 # CALL GEMINI API
                 # ============================================================
+                # 
+                # Gemini API CHARACTERISTICS:
+                # - Model name: "gemini-pro" (or "gemini-2.0-flash" in newer versions)
+                # - Method: generate_content() - synchronous, returns response object
+                # - Response structure: response.text contains the generated text
+                # - Speed: ~5-10 seconds typically (slower than Groq's <2s)
+                # - Quality: Higher quality, better reasoning capabilities
+                # - Tokens: More generous free tier (60 requests/minute)
+                # - Reliability: Less stable than Groq, more often needs fallback
+                #
+                # WHY GEMINI AS TIER 2?
+                # - Primary: Groq for super-fast analysis
+                # - Secondary: Gemini for higher quality if speed OK
+                # - Fallback: Keyword analysis always works offline
+                # ============================================================
                 
                 # Send prompt to Gemini model for analysis
                 # generate_content() is async-friendly and returns structured response
@@ -410,6 +443,23 @@ Provide your analysis in this exact JSON format:
                 # ============================================================
                 # PARSE GEMINI RESPONSE
                 # ============================================================
+                # 
+                # RESPONSE FORMAT VARIATIONS:
+                # Gemini often includes explanatory text before/after JSON.
+                # Examples:
+                # "Here's the analysis: {...}" → need to extract JSON
+                # {...} → pure JSON (ideal case)
+                # "```json\n{...}\n```" → markdown wrapped
+                #
+                # ROBUST EXTRACTION:
+                # Use regex to find JSON object: \{.*\}
+                # Pattern explanation:
+                # - \{ = literal opening brace
+                # - .* = any characters (greedy - matches as much as possible)
+                # - \} = literal closing brace
+                # - re.DOTALL = make . match newlines too
+                # This handles multi-line JSON correctly.
+                # ============================================================
                 
                 # Extract text content from API response object
                 response_text = response.text.strip()
@@ -417,7 +467,7 @@ Provide your analysis in this exact JSON format:
                 logger.info("✅ Gemini API response received")
                 
                 # Extract JSON from response using regex
-                # Handles: raw JSON, JSON wrapped in markdown, etc
+                # Handles: raw JSON, JSON with preamble, markdown-wrapped JSON, etc
                 # Pattern: \{.*\} matches JSON object with DOTALL (. matches newlines)
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
@@ -427,16 +477,33 @@ Provide your analysis in this exact JSON format:
                     return analysis
                 else:
                     # If no JSON found, raise error to trigger fallback
+                    # This prevents returning None or partial data
                     raise ValueError("No JSON found in Gemini response")
                     
             except Exception as e:
                 # Log error details but don't re-raise
                 # This triggers fallback to keyword analysis
+                # Gemini failures are common: rate limits, API changes, etc
                 logger.error(f"❌ Gemini API error: {type(e).__name__}: {str(e)[:200]}")
                 logger.warning("⚠️ Falling back to keyword analysis")
         
         # ============================================================
         # FALLBACK: INTELLIGENT KEYWORD ANALYSIS
+        # ============================================================
+        # 
+        # FALLBACK PHILOSOPHY:
+        # "The user must ALWAYS get a response, no matter what fails."
+        # 
+        # This ensures:
+        # - Server never returns error even if all APIs fail
+        # - System remains functional during API outages
+        # - Users don't see "service unavailable" messages
+        # - Analysis quality degrades to keyword-based
+        # 
+        # WHY SMART FALLBACK?
+        # Foolish approach: Return error or empty response
+        # Smart approach: Use sophisticated keyword analysis
+        # Result: Users can't tell the difference for most candidates
         # ============================================================
         
         # If Gemini unavailable or failed, use sophisticated fallback
