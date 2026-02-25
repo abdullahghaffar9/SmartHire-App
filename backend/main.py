@@ -1086,9 +1086,44 @@ Provide your analysis in this exact JSON format:
         # ============================================================
         # GENERATE PERSONALIZED EMAIL DRAFT
         # ============================================================
+        # 
+        # Email generation is score-based with two distinct templates:
+        # 
+        # POSITIVE EMAIL (Score ≥ 65):
+        # - Conveys enthusiasm for the candidate
+        # - Extends interview invitation
+        # - Personalizes with matched skills and experience
+        # - Adjusts interview format based on score:
+        #   * ≥75: "technical discussion" (senior, more detailed)
+        #   * <75: "conversation" (less intensive)
+        # - Sets urgency based on strength:
+        #   * ≥80: "this week" (top candidates)
+        #   * <80: "coming week" (good candidates)
+        #
+        # REJECTION EMAIL (Score < 65):
+        # - Professional and encouraging tone
+        # - Acknowledges strengths (doesn't demoralize)
+        # - Specifies gaps without being harsh
+        # - Encourages continued skill development
+        # - Offers future opportunities
+        # - Compliments their field
+        #
+        # WHY TWO TEMPLATES?
+        # - Personalization at scale: Creates custom emails for 100+ candidates
+        # - Consistent tone: Professional branding for company
+        # - Reduces recruiter workload: Emails ready to send (or slight customize)
+        # - Recruiter control: Can be template or starting point
+        # ============================================================
         
+        # Branch: Positive or Rejection Email
         if final_score >= 65:
-            # Positive/Interview Invitation Email
+            # ========================================================
+            # POSITIVE EMAIL - Interview Invitation Template
+            # ========================================================
+            # Score ≥65: Candidate meets minimum bar for interview
+            # This email conveys professional enthusiasm and next steps
+            # ========================================================
+            
             email_draft = f"""Dear Candidate,
 
 Thank you for your application for this position. We have completed our initial review of your resume and are impressed with your qualifications.
@@ -1109,7 +1144,13 @@ Hiring Team
 SmartHire Recruiting"""
             
         else:
-            # Polite Rejection Email
+            # ========================================================
+            # REJECTION EMAIL - Professional Rejection Template
+            # ========================================================
+            # Score <65: Candidate doesn't meet requirements for interview
+            # This email is kind, professional, and future-focused
+            # ========================================================
+            
             email_draft = f"""Dear Candidate,
 
 Thank you for taking the time to apply for this position and for your interest in joining our team.
