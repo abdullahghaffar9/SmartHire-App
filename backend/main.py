@@ -470,83 +470,144 @@ Provide your analysis in this exact JSON format:
         # ============================================================
         # COMPREHENSIVE SKILL DATABASE (60+ CATEGORIES)
         # ============================================================
+        # 
+        # WEIGHTING SYSTEM:
+        # Each skill category has a weight multiplier that increases impact
+        # on the overall match score. Higher weight = more importance.
+        # 
+        # WEIGHT VALUES:
+        #   1.5 = Critical (must-have or very high demand)
+        #   1.4 = Very Important (specialized expertise)
+        #   1.3 = Important (commonly required)
+        #   1.2 = Fairly Important (valuable but not critical)
+        #   1.1 = Moderately Important (helpful to have)
+        #   1.0 = Standard (baseline importance)
+        # 
+        # EXAMPLE CALCULATION:
+        #   If job asks for "Python + JavaScript + React":
+        #     - Python match: 1 * 1.5 = 1.5 weighted points
+        #     - JavaScript match: 1 * 1.5 = 1.5 weighted points
+        #     - React match: 1 * 1.3 = 1.3 weighted points
+        #     - Total matched weight: 4.3
+        #     - Total possible weight: 4.3
+        #     - Skill score: 4.3 / 4.3 * 60 = 60 points
+        # 
+        # WHY THESE WEIGHTS?
+        # - Programming languages (1.5): Foundation of all software development
+        # - Data science (1.5): High-demand, specialized skills
+        # - Backend frameworks (1.4): Core to server-side architecture
+        # - Cloud platforms (1.4): Essential in modern DevOps
+        # - Frontend frameworks (1.3): UI is major part of web development
+        # - Backend frameworks (1.3): Database management is critical
+        # - DevOps tools (1.2): Infrastructure matters but not as much as coding
+        # - Security (1.2): Critical for safe applications
+        # - Version control (1.0): Almost universal, baseline expectation
+        # ============================================================
         
         skill_categories = {
+            # TIER 1: CRITICAL SKILLS (weight 1.5)
+            # These are must-haves for most technical roles
+            # High demand, foundational to software development
             'programming_languages': {
                 'skills': ['python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'go', 
                           'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r', 'matlab'],
-                'weight': 1.5  # High importance
+                'weight': 1.5  # Programming is the foundation of software engineering
             },
-            'frontend_frameworks': {
-                'skills': ['react', 'vue', 'angular', 'svelte', 'next.js', 'nuxt', 'gatsby',
-                          'html5', 'css3', 'sass', 'less', 'tailwind', 'bootstrap', 'material-ui'],
-                'weight': 1.3
-            },
-            'backend_frameworks': {
-                'skills': ['fastapi', 'django', 'flask', 'nodejs', 'express', 'nestjs',
-                          'spring boot', 'spring', 'asp.net', 'rails', 'laravel', 'symfony'],
-                'weight': 1.4
-            },
-            'mobile_development': {
-                'skills': ['react native', 'flutter', 'ios development', 'android development',
-                          'swift', 'kotlin', 'xamarin', 'ionic', 'cordova'],
-                'weight': 1.3
-            },
-            'databases': {
-                'skills': ['postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',
-                          'cassandra', 'dynamodb', 'sql', 'nosql', 'oracle', 'sql server'],
-                'weight': 1.3
-            },
-            'cloud_platforms': {
-                'skills': ['aws', 'azure', 'gcp', 'google cloud', 'heroku', 'digitalocean',
-                          'vercel', 'netlify', 'cloudflare'],
-                'weight': 1.4
-            },
-            'devops_tools': {
-                'skills': ['docker', 'kubernetes', 'jenkins', 'gitlab ci', 'github actions',
-                          'circleci', 'travis ci', 'terraform', 'ansible', 'puppet', 'chef'],
-                'weight': 1.2
-            },
+            
             'data_science': {
                 'skills': ['machine learning', 'deep learning', 'tensorflow', 'pytorch',
                           'scikit-learn', 'pandas', 'numpy', 'matplotlib', 'jupyter',
                           'data analysis', 'nlp', 'computer vision'],
-                'weight': 1.5
+                'weight': 1.5  # ML/AI is high-demand, specialized knowledge
             },
-            'testing': {
-                'skills': ['jest', 'pytest', 'junit', 'selenium', 'cypress', 'testing',
-                          'unit testing', 'integration testing', 'tdd', 'bdd'],
-                'weight': 1.1
+            
+            # TIER 2: VERY IMPORTANT SKILLS (weight 1.4)
+            # Specialized frameworks and platforms
+            # Required for modern software development practices
+            'backend_frameworks': {
+                'skills': ['fastapi', 'django', 'flask', 'nodejs', 'express', 'nestjs',
+                          'spring boot', 'spring', 'asp.net', 'rails', 'laravel', 'symfony'],
+                'weight': 1.4  # Backend is critical to application architecture
             },
-            'version_control': {
-                'skills': ['git', 'github', 'gitlab', 'bitbucket', 'svn', 'version control'],
-                'weight': 1.0
+            
+            'cloud_platforms': {
+                'skills': ['aws', 'azure', 'gcp', 'google cloud', 'heroku', 'digitalocean',
+                          'vercel', 'netlify', 'cloudflare'],
+                'weight': 1.4  # Cloud is now standard for modern deployments
             },
-            'project_management': {
-                'skills': ['agile', 'scrum', 'kanban', 'jira', 'confluence', 'trello',
-                          'asana', 'project management'],
-                'weight': 1.0
+            
+            # TIER 3: IMPORTANT SKILLS (weight 1.3)
+            # Framework-specific and specialized areas
+            'frontend_frameworks': {
+                'skills': ['react', 'vue', 'angular', 'svelte', 'next.js', 'nuxt', 'gatsby',
+                          'html5', 'css3', 'sass', 'less', 'tailwind', 'bootstrap', 'material-ui'],
+                'weight': 1.3  # Frontend is major component of web apps
             },
+            
+            'mobile_development': {
+                'skills': ['react native', 'flutter', 'ios development', 'android development',
+                          'swift', 'kotlin', 'xamarin', 'ionic', 'cordova'],
+                'weight': 1.3  # Mobile is growing but specialized
+            },
+            
+            'databases': {
+                'skills': ['postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',
+                          'cassandra', 'dynamodb', 'sql', 'nosql', 'oracle', 'sql server'],
+                'weight': 1.3  # Data persistence is critical to every app
+            },
+            
             'architecture': {
                 'skills': ['microservices', 'rest api', 'graphql', 'websockets', 'grpc',
                           'event-driven', 'serverless', 'monolithic', 'distributed systems'],
-                'weight': 1.3
+                'weight': 1.3  # System design shows senior-level thinking
             },
+            
+            # TIER 4: FAIRLY IMPORTANT SKILLS (weight 1.2)
+            # Infrastructure and quality assurance
+            'devops_tools': {
+                'skills': ['docker', 'kubernetes', 'jenkins', 'gitlab ci', 'github actions',
+                          'circleci', 'travis ci', 'terraform', 'ansible', 'puppet', 'chef'],
+                'weight': 1.2  # DevOps is essential but specialized
+            },
+            
             'security': {
                 'skills': ['oauth', 'jwt', 'security', 'authentication', 'authorization',
                           'encryption', 'ssl', 'tls', 'penetration testing'],
-                'weight': 1.2
+                'weight': 1.2  # Security is increasingly critical
             },
+            
+            # TIER 5: MODERATELY IMPORTANT SKILLS (weight 1.1)
+            # Quality control and human factors
+            'testing': {
+                'skills': ['jest', 'pytest', 'junit', 'selenium', 'cypress', 'testing',
+                          'unit testing', 'integration testing', 'tdd', 'bdd'],
+                'weight': 1.1  # Testing improves code quality
+            },
+            
             'soft_skills': {
                 'skills': ['leadership', 'team lead', 'management', 'communication',
                           'problem solving', 'analytical', 'teamwork', 'collaboration',
                           'mentoring', 'presentation', 'stakeholder management'],
-                'weight': 1.1
+                'weight': 1.1  # Soft skills separate good engineers from great ones
             },
+            
+            # TIER 6: STANDARD SKILLS (weight 1.0)
+            # Essential but widely expected
+            'version_control': {
+                'skills': ['git', 'github', 'gitlab', 'bitbucket', 'svn', 'version control'],
+                'weight': 1.0  # Nearly universal expectation in 2024
+            },
+            
+            'project_management': {
+                'skills': ['agile', 'scrum', 'kanban', 'jira', 'confluence', 'trello',
+                          'asana', 'project management'],
+                'weight': 1.0  # Important for collaboration but standardized
+            },
+            
             'methodologies': {
                 'skills': ['ci/cd', 'continuous integration', 'continuous deployment',
                           'devops', 'design patterns', 'solid principles', 'clean code'],
-                'weight': 1.0
+                'weight': 1.0  # Best practices expected in professional settings
             }
         }
         
