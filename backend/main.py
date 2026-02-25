@@ -1859,6 +1859,26 @@ def clean_text(text: str) -> str:
     Handles common PDF extraction issues while preserving document structure
     and semantic meaning. Applies multiple cleaning passes for reliability.
     
+    EXTRACTION CHALLENGES:
+    PDFs are complex formats that store text as sequences of positioned glyphs.
+    When extracting to plain text, common issues appear:
+    - Page numbers, headers, footers appear as noise
+    - Words broken across lines with hyphens (soft-hyphens)
+    - Multiple spaces used for layout/alignment
+    - Bullet points rendered as special Unicode characters
+    - Excessive punctuation from OCR errors
+    - Line breaks in middle of sentences
+    
+    CLEANING STRATEGY:
+    This function applies multi-pass regex cleaning to fix these issues
+    while preserving the semantic meaning of the resume text.
+    
+    SAFETY PRINCIPLES:
+    - Conservative approach: only remove obvious noise
+    - Preserve intentional formatting (lists, paragraphs)
+    - Never remove actual content (job titles, skills, dates)
+    - Maintain case sensitivity (preserve capitalization)
+    
     Args:
         text: Raw text extracted from PDF
         
@@ -1866,7 +1886,24 @@ def clean_text(text: str) -> str:
         Cleaned, normalized text ready for AI analysis
     """
     # ============================================================
-    # NORMALIZE WHITESPACE (Preserve meaningful spacing)
+    # PASS 1: NORMALIZE WHITESPACE (Preserve meaningful spacing)
+    # ============================================================
+    # 
+    # WHY THIS FIRST?
+    # - Whitespace is most common noise from PDF layout
+    # - Fixes before other passes improves subsequent pattern matching
+    # - Easier to identify patterns when spaces are consistent
+    # 
+    # WHAT GETS FIXED:
+    # - Multiple spaces/tabs → single space
+    # - Preserves semantic structure (paragraphs stay paragraphs)
+    # 
+    # EXAMPLES:
+    # Input: "Python    Developer" (multiple spaces)
+    # Output: "Python Developer"
+    # 
+    # Input: "John\tSmith" (tab character)
+    # Output: "John Smith"
     # ============================================================
     
     # Replace multiple spaces/tabs with single space
@@ -1875,7 +1912,25 @@ def clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
 
     # ============================================================
-    # FIX COMMON PDF EXTRACTION ISSUES
+    # PASS 2: FIX PDF SOFT-HYPHEN ISSUES (Join split words)
+    # ============================================================
+    # 
+    # WHY THIS HAPPENS:
+    # PDF columns are narrow, so words like "Requirements" break:
+    # Line 1: "Require-"
+    # Line 2: "ments"
+    # 
+    # WHEN EXTRACTED:
+    # Becomes: "Require-\nments"
+    # 
+    # WHAT WE FIX:
+    # Pattern: word character, hyphen, newline, whitespace, word character
+    # Rejoin: remove hyphen, put words together with space
+    # Result: "Requirements"
+    # 
+    # EXAMPLES:
+    # Input: "Prob-\nlem solving" → Output: "Problem solving"
+    # Input: "Pro-\n  gram" → Output: "Program"
     # ============================================================
     
     # Fix hyphenated words split across lines (e.g., "Prob-\nlem" -> "Problem")
@@ -1884,7 +1939,26 @@ def clean_text(text: str) -> str:
     text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
 
     # ============================================================
-    # NORMALIZE BULLET POINTS AND LISTS
+    # PASS 3: NORMALIZE BULLET POINTS AND LISTS
+    # ============================================================
+    # 
+    # WHY BULLETS ARE COMPLEX:
+    # Different PDFs use different Unicode characters:
+    # - • (bullet, U+2022)
+    # - ● (black circle, U+25CF)
+    # - ○ (white circle, U+25CB)
+    # - ■ (black square, U+25A0)
+    # - □ (white square, U+25A1)
+    # - ▪ (small square, U+25AA)
+    # - ▫ (small white square, U+25AB)
+    # 
+    # WHAT WE DO:
+    # Convert all to consistent "-" format
+    # Makes it easier for AI to recognize list items
+    # 
+    # EXAMPLES:
+    # Input: "• Python\n• JavaScript"
+    # Output: "- Python\n- JavaScript"
     # ============================================================
     
     # Convert various bullet point symbols to consistent dash format
@@ -1896,7 +1970,24 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\*\s+", "- ", text)
 
     # ============================================================
-    # FIX EXCESSIVE PUNCTUATION (Common in OCR/bad extraction)
+    # PASS 4: FIX EXCESSIVE PUNCTUATION (Common in OCR/bad extraction)
+    # ============================================================
+    # 
+    # WHY THIS HAPPENS:
+    # - OCR engines sometimes misread punctuation
+    # - Multiple dots used in original formatting (e.g., "...")
+    # - Scan artifacts create repeated characters
+    # 
+    # WHAT GETS FIXED:
+    # - Multiple periods: "..." or "...." → "."
+    # - Multiple dashes: "---" or "-----" → "-"
+    # 
+    # EXAMPLES:
+    # Input: "Skills...................java"
+    # Output: "Skills.java"
+    # 
+    # Input: "Section 1-----Java-----Section 2"
+    # Output: "Section 1-Java-Section 2"
     # ============================================================
     
     # Replace multiple periods with single period
@@ -1910,7 +2001,26 @@ def clean_text(text: str) -> str:
     text = re.sub(r"-{2,}", "-", text)
 
     # ============================================================
-    # REMOVE PAGE NUMBERS (Common PDF footer/header noise)
+    # PASS 5: REMOVE PAGE NUMBERS (Common PDF footer/header noise)
+    # ============================================================
+    # 
+    # WHY PAGE NUMBERS ARE NOISE:
+    # - Don't contain candidate information
+    # - Confuse AI: "45" in resume might be misinterpreted as score
+    # - Common formats vary: " 1 ", " 45", "Page 1", "(Page 23)"
+    # 
+    # SAFETY:
+    # Only remove page numbers in isolated lines
+    # Won't remove "Started in 2019" or "5 years experience"
+    # 
+    # EXAMPLES REMOVED:
+    # " 1 " on its own line → removed
+    # "Page 45" on its own line → removed
+    # "(Page 3)" on its own line → removed
+    # 
+    # EXAMPLES PRESERVED:
+    # "5 years of experience" → preserved (not isolated)
+    # "2019-2024" → preserved (not isolated)
     # ============================================================
     
     # Remove lines containing only page numbers in various formats
@@ -1921,7 +2031,17 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n\s*\(Page\s+\d+\)\s*\n", "\n", text, flags=re.IGNORECASE)
 
     # ============================================================
-    # REMOVE HEADER/FOOTER PATTERNS
+    # PASS 6: REMOVE HEADER/FOOTER PATTERNS
+    # ============================================================
+    # 
+    # WHY HEADER/FOOTERS ARE NOISE:
+    # Common resume footers contain company letterhead or page identifiers
+    # Examples: "John Doe - Page 1", "Resume - Applicant"
+    # These repeat on every page and confuse AI
+    # 
+    # WHAT WE REMOVE:
+    # Isolated lines with text + digits (typical header format)
+    # Examples: "John Doe 1", "Resume Page 2", "AppInfo 45"
     # ============================================================
     
     # Remove common header/footer patterns with page numbers
@@ -1929,7 +2049,22 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n\s*[A-Za-z\s]+\d{1,2}\s*\n", "\n", text)
 
     # ============================================================
-    # NORMALIZE LINE BREAKS (Preserve paragraph structure)
+    # PASS 7: NORMALIZE LINE BREAKS (Preserve paragraph structure)
+    # ============================================================
+    # 
+    # WHY THIS MATTERS:
+    # PDFs often have irregular line spacing
+    # Multiple empty lines between sections (3-5 line breaks)
+    # We reduce to exactly 2 (semantic paragraph break)
+    # 
+    # PRESERVES STRUCTURE:
+    # - Paragraphs separated by 2 newlines (preserved)
+    # - Multiple blank lines compressed (normalized)
+    # - Single line breaks preserved (sentence breaks)
+    # 
+    # EXAMPLES:
+    # Input: "Section 1\n\n\n\nSection 2" (4 blank lines)
+    # Output: "Section 1\n\nSection 2" (1 blank line, 2 newlines total)
     # ============================================================
     
     # Replace 3+ consecutive line breaks with exactly 2 (paragraph break)
@@ -1938,7 +2073,24 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
 
     # ============================================================
-    # FIX BROKEN SENTENCES (Rejoin split words and sentences)
+    # PASS 8: FIX BROKEN SENTENCES (Rejoin split words and sentences)
+    # ============================================================
+    # 
+    # WHY SENTENCES BREAK:
+    # Narrow columns in PDFs break sentences mid-word
+    # Line 1: "I am an experienced"
+    # Line 2: "developer"
+    # 
+    # WHEN EXTRACTED:
+    # "experienced\ndeveloper" (missing space between words)
+    # 
+    # WHAT WE FIX:
+    # If lowercase letter followed by line break then lowercase letter
+    # Join with space (not part of hyphenated word like "self-motivated")
+    # 
+    # EXAMPLES:
+    # Input: "I am an experienced\ndeveloper"
+    # Output: "I am an experienced developer"
     # ============================================================
     
     # Fix line breaks within middle of sentences/words
@@ -1948,7 +2100,18 @@ def clean_text(text: str) -> str:
     text = re.sub(r"([a-z])\n([a-z])", r"\1 \2", text)
 
     # ============================================================
-    # CLEAN INDIVIDUAL LINES (Remove leading/trailing whitespace)
+    # PASS 9: CLEAN INDIVIDUAL LINES (Remove leading/trailing whitespace)
+    # ============================================================
+    # 
+    # FINAL PASS:
+    # Process every line to ensure consistent format
+    # - Remove leading/trailing spaces from each line
+    # - Filter empty lines that resulted from previous passes
+    # 
+    # WHY IMPORTANT:
+    # AI systems are sensitive to whitespace
+    # Extra spaces confuse NLP models
+    # Empty lines are noise, not structure
     # ============================================================
     
     # Split entire text into individual lines for line-by-line processing
@@ -1965,7 +2128,7 @@ def clean_text(text: str) -> str:
             cleaned_lines.append(line)
 
     # ============================================================
-    # REJOIN CLEANED LINES
+    # FINAL: REJOIN CLEANED LINES
     # ============================================================
     
     # Rejoin all cleaned lines with single newlines
