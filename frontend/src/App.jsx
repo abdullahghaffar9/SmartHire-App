@@ -671,7 +671,40 @@ export default function App() {
                 <label className="block text-sm font-semibold text-white mb-3">
                   Job Description
                 </label>
-                {/* Textarea for job description input */}
+                
+                {/* ============================================================ */}
+                {/* JOB DESCRIPTION TEXTAREA */}
+                {/* ============================================================ */}
+                {/* 
+                  This textarea collects the job requirements from the user.
+                  It's a CONTROLLED COMPONENT - React state drives the value.
+                  
+                  WHY CONTROLLED COMPONENT?
+                  - React state always reflects textarea value
+                  - Enables validation: can check if empty before submit
+                  - Enables clear: can reset textarea programmatically
+                  - Single source of truth: state is the authority
+                  
+                  TEXT CLASSES:
+                  - w-full h-40: full width, 40 lines (10-12 lines visible)
+                  - bg-white/5: subtle background (5% white opacity)
+                  - border border-white/20: subtle border (20% white opacity)
+                  - focus:border-blue-400: bright blue when focused
+                  - focus:ring-2 focus:ring-blue-500/30: focus ring effect
+                  - placeholder-slate-500: gray placeholder text
+                  - resize-none: disable resize (fixed height looks better)
+                  
+                  BEHAVIOR:
+                  - onChange handler updates state as user types
+                  - Character counter shown below (see next element)
+                  - Tooltip-like placeholder explains what to paste
+                  
+                  PERFORMANCE:
+                  - onChange fires on every keystroke (not optimal)
+                  - Solution: could debounce update, but simpl is fine
+                  - React efficiently updates only textarea UI
+                  - State change doesn't affect button disabled state
+                */}
                 <textarea
                   // Controlled component: value comes from state
                   // onChange updates state as user types
@@ -681,8 +714,29 @@ export default function App() {
                   className="w-full h-40 px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-slate-500 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 transition-all resize-none backdrop-blur-sm"
                 />
               </div>
-              {/* Character counter: shows user how much text they've entered */}
-              {/* Helps users understand if description is too short */}
+              
+              {/* ============================================================ */}
+              {/* CHARACTER COUNTER */}
+              {/* ============================================================ */}
+              {/* 
+                Shows user how much text has been entered.
+                
+                WHY CHARACTER COUNTER?
+                - Feedback: tells user if description is complete
+                - Helps understand minimum requirements
+                - Unobtrusive: small gray text below textarea
+                - Useful: typical job description is 500-2000 chars
+                
+                EXAMPLE FLOW:
+                - User starts typing: counter goes 0 → 50 → 100 → ...
+                - Helps user understand "600 chars? that should be enough"
+                - If counter says "50 chars", user knows they need to paste more
+                
+                BEHAVIOR:
+                - Updates on every keystroke (job_description state change)
+                - Real-time feedback to user
+                - No performance impact (just displaying a number)
+              */}
               <p className="text-xs text-slate-500 mt-2">
                 {jobDescription.length} characters
               </p>
@@ -705,7 +759,9 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Analyze Button - Triggers AI Analysis */}
+            {/* ============================================================ */}
+            {/* ANALYZE BUTTON - PRIMARY CALL TO ACTION */}
+            {/* ============================================================ */}
             <motion.button
               onClick={analyzeCandidate}
               // Disable button if:
