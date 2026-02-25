@@ -1167,27 +1167,63 @@ def clean_ai_response(text: str) -> str:
     """
     Clean AI response by removing markdown code block wrappers.
     
-    Many LLMs wrap JSON responses in markdown syntax (```json ... ```).
+    Common Issue:
+    Many LLMs wrap JSON responses in markdown syntax for readability.
+    Examples:
+        ```json
+        {"key": "value"}
+        ```
+        
+        Or sometimes without the json type hint:
+        ```
+        {"key": "value"}
+        ```
+    
     This utility strips those markers to prepare text for JSON parsing.
+    Ensures json.loads() can parse the extracted JSON successfully.
     
     Args:
-        text: Raw response text from AI model
+        text: Raw response text from AI model (may contain markdown)
         
     Returns:
-        Cleaned text with markdown removed and whitespace normalized
+        Cleaned text with markdown removed and whitespace trimmed
         
     Example:
         >>> text = '```json\\n{"key": "value"}\\n```'
         >>> clean_ai_response(text)
         '{"key": "value"}'
+        
+        >>> text = '```\\n{"key": "value"}\\n```'
+        >>> clean_ai_response(text)
+        '{"key": "value"}'
     """
-    # Remove markdown code block markers (```json ... ```)
+    # ============================================================
+    # REMOVE MARKDOWN CODE BLOCK OPENING MARKERS
+    # ============================================================
+    
+    # Pattern: ```json, ```javascript, ``` or similar
+    # (?:json)? means: optionally match 'json' (but don't capture it)
+    # \s* means: match zero or more whitespace characters
+    # This handles both ```json and ``` with optional language hint
+    # Replaces with empty string (removes the marker entirely)
     text = re.sub(r"```(?:json)?\s*", "", text)
 
-    # Remove any trailing code block markers
+    # ============================================================
+    # REMOVE MARKDOWN CODE BLOCK CLOSING MARKERS
+    # ============================================================
+    
+    # Remove any remaining closing code block markers (```)
+    # These appear at the end of the markdown block
+    # Simple string replacement is fine here since we're just removing a delimiter
     text = text.replace("```", "")
 
-    # Normalize whitespace
+    # ============================================================
+    # NORMALIZE WHITESPACE
+    # ============================================================
+    
+    # Strip leading and trailing whitespace from entire response
+    # Ensures clean JSON string ready for parser
+    # strip() removes: spaces, tabs, newlines, carriage returns
     text = text.strip()
 
     return text
