@@ -2492,28 +2492,131 @@ async def analyze_resume_basic(
 
 
 # ============================================================
-# APPLICATION ENTRY POINT & SERVER STARTUP
+# APPLICATION ENTRY POINT & SERVER STARTUP CONFIGURATION
+# ============================================================
+# 
+# This section runs when script is executed directly (not imported).
+# Initializes and starts the production-ready ASGI server.
+# 
+# WHEN THIS RUNS:
+# - Direct execution: python main.py → runs this code
+# - Module import: from main import app → skips this code
+#
+# PRODUCTION VS DEVELOPMENT:
+# 
+# Development (Flask/FastAPI built-in):
+#   python app.py
+#   Problem: Single-threaded, auto-reloads, slow, not production-ready
+#   Use: Only for testing, learning, debugging
+# 
+# Production (Uvicorn ASGI):
+#   python main.py (or: uvicorn main:app)
+#   Benefits: Multi-process, asynchronous, handles 1000s concurrent requests
+#   Use: Real deployments, cloud platforms, load-balanced setups
+# 
+# CLOUD PLATFORMS:
+# Many platforms don't use this script directly. Instead:
+# - Vercel: reads vercel.json, runs 'uvicorn main:app' command
+# - Heroku: reads Procfile, runs 'uvicorn main:app --host 0.0.0.0' 
+# - Docker: Dockerfile specifies CMD ["uvicorn", "main:app"]
+# - Railway/Render: auto-detects Python, runs uvicorn from requirements.txt
+# 
+# This script is mainly for:
+# - Local development: python main.py watches file for changes
+# - Docker containers: Entry point after dependency installation
+# - Testing: Simple way to verify app starts without errors
 # ============================================================
 
 if __name__ == "__main__":
     # Import Uvicorn ASGI server for production-ready HTTP serving
+    # Uvicorn is the standard async web server for FastAPI in production
     import uvicorn
 
     # ============================================================
-    # CONFIGURE AND START UVICORN SERVER
+    # UVICORN SERVER CONFIGURATION
+    # ============================================================
+    # 
+    # Uvicorn: ASGI web server for running async Python applications
+    # 
+    # Key differences from development server:
+    # - ASGI: Async-aware (handles async/await properly)
+    # - Multi-worker: Can spawn multiple processes for CPU efficiency
+    # - SSL/TLS: Supports HTTPS certificates for secure connections
+    # - Performance: Optimized C bindings for fast request handling
+    # - Logging: Comprehensive request/response logging
+    # - Graceful shutdown: Closes connections cleanly on SIGTERM
+    # 
+    # CONFIG PARAMETERS:
     # ============================================================
     
-    # Uvicorn: ASGI server for running async FastAPI applications
-    # Production-ready alternative to development server
     uvicorn.run(
+        # Application: The FastAPI instance to serve
+        # This is the 'app' variable defined at the top of main.py
+        # Uvicorn will call app.__call__() for each HTTP request
         app,
+        
+        # ============================================================
+        # HOST BINDING
+        # ============================================================
         # Listen on all network interfaces (0.0.0.0)
-        # Allows connections from any IP address (localhost, remote machines)
+        # 
+        # WHY 0.0.0.0?
+        # - localhost (127.0.0.1): Only accessible from this machine
+        # - 0.0.0.0: Accessible from any IP (localhost, remote servers, mobile devices)
+        # 
+        # CLOUD PLATFORMS:
+        # Cloud services require 0.0.0.0 to expose service publicly
+        # Docker containers also need this for inter-container communication
+        # 
+        # OTHER OPTIONS:
+        # host="127.0.0.1": Only local access (development only)
+        # host="192.168.1.100": Bind to specific interface
+        # ============================================================
         host="0.0.0.0",
-        # Server port: 8000 (standard for development)
-        # Can be overridden with PORT environment variable
+        
+        # ============================================================
+        # PORT CONFIGURATION
+        # ============================================================
+        # Server port: 8000 (standard for development/testing)
+        # 
+        # COMMON PORTS:
+        # - 8000: Standard for development APIs
+        # - 8001-8009: Alternative development ports (avoid conflicts)
+        # - 80: HTTP (production, requires sudo/root)
+        # - 443: HTTPS (production, requires sudo/root)
+        # 
+        # CLOUD PLATFORMS:
+        # - Render/Railway: assign port 10000+
+        # - Vercel: can't run long-lived servers (serverless instead)
+        # - Heroku: assigns PORT environment variable
+        # 
+        # ENVIRONMENT VARIABLE:
+        # Could add: port=int(os.getenv("PORT", 8000))
+        # This allows cloud platforms to override the port
+        # ============================================================
         port=8000,
-        # Log level: info includes request details and important events
-        # Options: critical, error, warning, info, debug, trace
+        
+        # ============================================================
+        # LOGGING LEVEL
+        # ============================================================
+        # log_level: Controls verbosity of Uvicorn's own logging
+        # 
+        # LEVELS (from most to least verbose):
+        # - "trace": Everything including HTTP timing details
+        # - "debug": Detailed info for debugging
+        # - "info": Important events and request summaries (RECOMMENDED)
+        # - "warning": Only problems and warnings
+        # - "error": Only errors
+        # - "critical": Only critical failures
+        # 
+        # WHAT "info" LOGS:
+        # - Startup: "Uvicorn running on http://0.0.0.0:8000"
+        # - Requests: "GET /health HTTP/1.1" 200
+        # - Errors: "POST /analyze-resume HTTP/1.1 500"
+        # 
+        # PRODUCTION:
+        # Always use "info" in production (balances visibility/noise)
+        # Don't use "trace" or "debug" (too verbose, hurts performance)
+        # ============================================================
         log_level="info"
     )
