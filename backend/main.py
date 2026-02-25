@@ -2315,24 +2315,54 @@ async def analyze_resume(
         )
 
     # ============================================================
-    # ERROR HANDLING
+    # ERROR HANDLING AND RESPONSE MAPPING
+    # ============================================================
+    # 
+    # ERROR TYPES AND RESPONSES:
+    # 
+    # 1. HTTPException (400/500 - already formatted)
+    #    - Re-raise immediately
+    #    - Status code and message already set by code
+    #    - Examples: "Invalid file format", "Job description required"
+    # 
+    # 2. ValueError (400 - validation/parsing error)
+    #    - Means data format is wrong, not server error
+    #    - Examples: "Corrupt PDF", "No extractable text"
+    #    - User can fix by uploading different file
+    # 
+    # 3. Exception (500 - unexpected server error)
+    #    - Something went wrong in our code
+    #    - Not user's fault, not expected scenario
+    #    - Include stack trace in logs for debugging
+    #    - Return generic message to user (don't expose internals)
+    # 
+    # WHY THIS STRUCTURE?
+    # - Explicit error types help API client understand issue
+    # - Status codes follow HTTP semantics (400 = client error, 500 = server)
+    # - Logging captures enough detail for developers to fix
+    # - User messages are helpful without exposing implementation
     # ============================================================
     
     except HTTPException:
         # Re-raise HTTP exceptions already formatted for client response
         # These were explicitly created with status codes and messages
+        # Examples: 400 Invalid file, 400 Empty job description
         raise
+        
     except ValueError as e:
         # Handle validation errors from PDF extraction or parsing
         # ValueError typically means bad file format or extraction failure
+        # Examples: corrupt PDF, no text extractable, invalid JSON response
         logger.error(f"Validation error for {file.filename}: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail=f"Resume analysis validation failed: {str(e)}"
         )
+        
     except Exception as e:
-        # Catch all unexpected errors
+        # Catch all unexpected errors (programming bugs, system issues, etc.)
         # exc_info=True logs full stack trace for debugging
+        # Stack trace helps identify root cause: which line failed, why
         logger.error(f"Unexpected error processing {file.filename}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
