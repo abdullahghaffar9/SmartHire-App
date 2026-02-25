@@ -897,6 +897,38 @@ Provide your analysis in this exact JSON format (no other text before or after):
         # ============================================================
         # EXPERIENCE LEVEL DETECTION - Extract Years & Seniority
         # ============================================================
+        # 
+        # WHY EXPERIENCE MATTERS:
+        # Candidates with more experience and appropriate seniority level
+        # are statistically better fits for roles. This section extracts
+        # two dimensions: years of experience and career seniority.
+        # 
+        # YEARS OF EXPERIENCE:
+        # Measures length in field (proxy for expertise)
+        # Method: Extract numbers near "years" keywords
+        # Examples: "10 years of experience", "5+ yrs"
+        # 
+        # Impact on scoring:
+        #   0-2 years = 0 points (junior/intern)
+        #   2-5 years = 5 points (entry-level)
+        #   5-10 years = 10 points (experienced)
+        #   10+ years = 15 points (very experienced)
+        # 
+        # SENIORITY LEVEL:
+        # Indicates career progression (junior/mid/senior)
+        # Method: Look for position title keywords in resume
+        # Examples: "Senior Developer", "Principal Architect"
+        # 
+        # Impact on scoring:
+        #   Junior level = 0 points (entry positions)
+        #   Mid level = 5 points (experienced engineers)
+        #   Senior level = 10 points (leadership/authority)
+        # 
+        # This mirrors how recruiters think:
+        # - "This person has 15 years in the field" = strong signal
+        # - "They're a principal engineer" = senior credibility
+        # 
+        # ============================================================
         
         # Initialize experience counter (used if not found in resume)
         experience_years = 0
@@ -907,43 +939,85 @@ Provide your analysis in this exact JSON format (no other text before or after):
         # - "10+ years experience"
         # - "experience: 10 years"
         # - "10 years" (standalone)
+        # 
+        # We use multiple patterns to catch as many formats as possible
+        # Regular expressions for flexibility: allows "yrs" or "years", "+ suffix
         experience_patterns = [
-            # Pattern 1: "N years of experience" or "N yrs experience"
+            # Pattern 1: "N years of experience" or "N+ yrs experience"
             # Captures: "10 years of experience", "5+ yrs experience"
+            # Regex breakdown: (\d+) captures the number
+            #                  \+? optionally captures a plus sign
+            #                  (?:years?|yrs?) matches year/years/yr/yrs
+            #                  (?:of\s+)? optionally matches "of"
             r'(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?experience',
             
             # Pattern 2: "experience: N years" or "experience: N+"
             # Captures: "experience: 15 years", "experience: 20+"
+            # Matches "experience: 15 years" or "exp: 20 yrs"
             r'experience[:\s]+(\d+)\+?\s*(?:years?|yrs?)',
             
             # Pattern 3: Standalone number with years indicator
             # Catches any "N years" or "N yrs" not caught above
+            # More permissive, may match false positives (e.g., "2024")
+            # But used as fallback after specific patterns fail
             r'(\d+)\+?\s*(?:years?|yrs?)',
         ]
         
         # Try each pattern in order (most specific first)
-        # Use the first match found
+        # Use the first match found (most specific)
+        # If all patterns fail, experience_years stays 0
         for pattern in experience_patterns:
             match = re.search(pattern, resume_lower)
             if match:
                 # Extract the number (group 1 is the captured integer)
+                # group(1) is the first captured parentheses, the number
                 experience_years = int(match.group(1))
+                # Break to use first match (most specific pattern)
                 break
         
         # ============================================================
         # SENIORITY LEVEL DETECTION - Analyze Job Titles
+        # ============================================================
+        # 
+        # WHY JOB TITLES MATTER:
+        # Resume lists positions held: "Junior Developer", "Senior Engineer"
+        # These titles encode seniority level without explicit statement
+        # 
+        # SENIORITY TIERS:
+        # 
+        # SENIOR / LEAD / PRINCIPAL (10 points):
+        #   - Decision makers, architecture owners
+        #   - Examples: Senior Engineer, Tech Lead, Principal Architect
+        #   - Signal: Advanced skills, team guidance, mentorship
+        #   - Salary range: Often top 50% of compensation scale
+        #
+        # MID-LEVEL / EXPERIENCED (5 points):
+        #   - Individual contributors with proven track record
+        #   - Examples: Software Engineer, Developer, Technical Lead
+        #   - Signal: Can work independently, solve complex problems
+        #   - Salary range: Mid-range compensation
+        #
+        # JUNIOR / ENTRY-LEVEL (0 points):
+        #   - Learning professionals, early career
+        #   - Examples: Junior Developer, Associate Engineer, Intern
+        #   - Signal: Learning focused, supervision needed
+        #   - Salary range: Entry-level compensation
+        # 
         # ============================================================
         
         # Keywords indicating professional level/seniority
         # Mapped to three tiers: junior (entry), mid (experienced), senior (leadership)
         seniority_keywords = {
             # Senior leadership roles: decision makers, principals, architects
+            # These people often lead teams, make technical decisions
             'senior': ['senior', 'sr.', 'lead', 'principal', 'staff', 'architect'],
             
             # Mid-level: experienced professionals, level 2+ engineers
+            # These people work independently on complex problems
             'mid': ['mid-level', 'intermediate', 'engineer ii', 'developer ii'],
             
             # Junior/Entry: fresh graduates, junior roles, associate positions
+            # These people are learning and growing in the field
             'junior': ['junior', 'jr.', 'entry', 'associate', 'graduate']
         }
         
@@ -953,14 +1027,55 @@ Provide your analysis in this exact JSON format (no other text before or after):
         
         # Scan resume for seniority keywords
         # First match wins (order matters in dictionary)
+        # Searches in order: senior, mid, junior
         for level, keywords in seniority_keywords.items():
             # Check if any keyword from this level appears in the lowercase resume
+            # any() returns True if ANY matching keyword is found
             if any(keyword in resume_lower for keyword in keywords):
                 detected_level = level
+                # Break on first level matched, don't continue scanning
                 break
         
         # ============================================================
         # EDUCATION LEVEL DETECTION - Identify Degree Type
+        # ============================================================
+        # 
+        # WHY EDUCATION MATTERS:
+        # Formal education is measurable credential showing knowledge
+        # Higher degrees = more investment in learning
+        # Specific degrees correlate with certain fields
+        # 
+        # EDUCATION TIERS:
+        # 
+        # PhD / DOCTORATE (10 points):
+        #   - Highest academic achievement
+        #   - Examples: PhD Computer Science, MD, DDS
+        #   - Value: Research skills, advanced theoretical knowledge
+        #   - Common in: Research, specialized expertise roles
+        #
+        # MASTER'S DEGREE (8 points):
+        #   - Advanced graduate education
+        #   - Examples: MS Computer Science, MBA, MA, MSc
+        #   - Value: Deep specialization, higher expertise level
+        #   - Common in: Specialized technical roles, leadership
+        #
+        # BACHELOR'S DEGREE (6 points):
+        #   - Foundation university degree
+        #   - Examples: BS Computer Science, BA, B.Sc.
+        #   - Value: Core knowledge, expected in most tech roles
+        #   - Common in: Entry point to professional careers
+        #
+        # ASSOCIATE DEGREE (3 points):
+        #   - Two-year post-secondary degree
+        #   - Examples: AA, AS, A.S.
+        #   - Value: General knowledge, skills-focused
+        #   - Common in: Certain technical/trade roles
+        # 
+        # NO DEGREE (0 points):
+        #   - Self-taught or experience-based learning
+        #   - Common in: Software development (bootcamp graduates)
+        #   - Note: Many successful tech professionals have no degree
+        # 
         # ============================================================
         
         # Education qualification keywords mapped by degree level
@@ -985,6 +1100,7 @@ Provide your analysis in this exact JSON format (no other text before or after):
         
         # Search for education keywords, highest degree level wins
         # Order matters: PhD checked before Masters, etc.
+        # Returns immediately on first match with highest degree
         for level, keywords in education_keywords.items():
             if any(keyword in resume_lower for keyword in keywords):
                 education_level = level
