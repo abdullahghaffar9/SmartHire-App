@@ -249,7 +249,39 @@ export default function App() {
   /**
    * Handle file selection from file input
    * Validates file type and updates resume state
-   * Only accepts PDF files
+   * Only accepts PDF files - rejects other formats
+   * 
+   * FILE VALIDATION:
+   * - Check: file.type === 'application/pdf'
+   * - This uses MIME type from browser (user cannot spoof easily)
+   * - Backend will do additional validation (layers of security)
+   * 
+   * WHY VALIDATE ON FRONTEND?
+   * 1. User experience: immediate feedback (no server roundtrip)
+   * 2. Bandwidth: reject bad files before upload (save 5MB+)
+   * 3. Security: first defense (not security alone, need backend too)
+   * 4. Courtesy: don't fill server logs with junk uploads
+   * 
+   * OPTIONAL CHAINING (?.)
+   * - e.target.files?.[0] safely handles if files undefined
+   * - Avoids "Cannot read property '0' of undefined" error
+   * - Returns undefined if files array empty (controlled gracefully)
+   * 
+   * STATE UPDATE:
+   * - setResumeFile(file): Store file for later upload
+   * - setError(null): Clear previous error UI if present
+   * 
+   * ERROR HANDLING:
+   * - Wrong file type: setError + setResumeFile(null)
+   * - Clears old resume state (no mix of old + new invalid)
+   * - Shown to user via error banner in UI
+   * 
+   * FILE OBJECT PROPERTIES:
+   * - file.name: Original filename from user's computer
+   * - file.size: File size in bytes (could validate max size)
+   * - file.type: MIME type (we check for 'application/pdf')
+   * - file: The File object (inherits from Blob)
+   *        Can be read with FileReader() or sent in FormData
    */
   const handleFileChange = (e) => {
     // Get the first file from the input element
@@ -272,6 +304,36 @@ export default function App() {
   /**
    * Handle drag over event on drop zone
    * Provides visual feedback to user during drag operation
+   * 
+   * DRAG AND DROP API:
+   * - dragover: user drags item over drop zone (fires repeatedly)
+   * - dragenter: user enters drop zone (fires once on entry)
+   * - dragleave: user leaves drop zone (fires on exit)
+   * - drop: user releases mouse to drop file (fires on release)
+   * 
+   * WHY preventDefault()?
+   * - Default browser behavior: display file (open in tab)
+   * - preventDefault(): disables default, enables custom drop handler
+   * - Must call on dragover AND drop (both events)
+   * - Allows dataTransfer.dropEffect to control cursor icon
+   * 
+   * DATA STRUCTURE:
+   * - e.dataTransfer: Contains drag data (files, text, etc)
+   * - e.dataTransfer.files: FileList of dropped files (same as input)
+   * - Read-only outside drop event (security - prevents script stealing)
+   * 
+   * VISUAL FEEDBACK:
+   * - Add 'border-blue-500' class: change border color to blue
+   * - Add 'bg-blue-50' class: light blue background
+   * - Creates highlight effect: "this is the drop zone"
+   * - Uses Tailwind CSS for consistent styling
+   * - Stored in DOM via classList (not state - must be fast)
+   * 
+   * WHY classList NOT state?
+   * - classList: Instant DOM update (immediate visual feedback)
+   * - State: React re-render overhead (not needed for hover effect)
+   * - Trade-off: classList not React-ish but very fast
+   * - Alt: Could use onDragOver/onDragLeave state hooks (slower)
    */
   const handleDragOver = (e) => {
     // Prevent default drag behavior to enable drop
@@ -286,6 +348,29 @@ export default function App() {
   /**
    * Handle drag leave event on drop zone
    * Removes visual feedback when user drags away
+   * 
+   * DRAGENTER/DRAGLEAVE EDGE CASES:
+   * - dragenter: fires when entering element (including children)
+   * - dragleave: fires when leaving element (even to children)
+   * - Issue: child elements cause dragleave to fire
+   * - Example: drag over parent → drag over child → dragleave fires
+   * - Result: visual feedback flickers in/out
+   * 
+   * SOLUTION (sophisticated):
+   * - Track enter/leave count (increment on enter, decrement on leave)
+   * - Only remove highlight when count = 0 (full exit)
+   * - Prevents flickering when hovering child elements
+   * 
+   * SIMPLE SOLUTION (current):
+   * - Remove highlight on any drageleave
+   * - Flicker possible but acceptable (brief effect)
+   * - Simpler code, acceptable UX trade-off
+   * - Could be improved with counter system if needed
+   * 
+   * PREVENTING BUBBLING:
+   * - stopPropagation(): prevents event from bubbling to parents
+   * - Important: parent dropzone shouldn't also trigger highlight
+   * - For nested dropzones (we don't have any)
    */
   const handleDragLeave = (e) => {
     // Prevent default behavior
@@ -299,6 +384,45 @@ export default function App() {
   /**
    * Handle drop event on drop zone
    * Processes dropped files and validates them
+   * 
+   * DROP EVENT LIFECYCLE:
+   * 1. User drags file over zone → dragover fires (repeatedly)
+   * 2. dragover handler calls preventDefault() → enables drop
+   * 3. User releases mouse → drop event fires
+   * 4. drop handler prevents default (file opening)
+   * 5. Extract file from e.dataTransfer.files
+   * 6. Process file (validate, upload, etc)
+   * 
+   * PREVENTING DEFAULT ON DROP:
+   * - Without preventDefault: browser opens file in new tab
+   * - With preventDefault: custom drop handler takes control
+   * - MUST call preventDefault on drop event
+   * - Different from dragover (both must call it)
+   * 
+   * REMOVING HIGHLIGHT:
+   * - Highlight added during dragover (blue border + bg)
+   * - Remove immediately on drop (before validation)
+   * - Shows user "drop processed" → removes visual effect
+   * - Happens fast (before state updates)
+   * 
+   * ERROR HANDLING:
+   * - Same validation as handleFileChange
+   * - Check file.type === 'application/pdf'
+   * - Show error if wrong type
+   * - Reset state to clean slate
+   * 
+   * DATATRANSFER SECURITY:
+   * - e.dataTransfer only readable inside dragover/drop handlers
+   * - Browser prevents scripts from reading random files (sandbox)
+   * - Can only access files user explicitly dragged onto element
+   * - Optional chaining (?.) prevents errors on empty files
+   * 
+   * FILE PROPERTIES IMPORTANT:
+   * - file.type: MIME type (we validate 'application/pdf')
+   * - file.name: filename ('resume.pdf', 'qualifications.pdf')
+   * - file.size: bytes (could add max size check)
+   * - file: Blob-like object (can read with FileReader)
+   * - Can be sent directly in FormData for upload
    */
   const handleDrop = (e) => {
     // Prevent browser's default file handling (usually opens file)
