@@ -1031,12 +1031,79 @@ export default function App() {
                     transition={{ delay: 0.7 }}
                     className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-xl p-6 hover:border-white/40 transition-all duration-300"
                   >
+                    {/* ============================================================ */}
+                    {/* EMAIL DRAFT SECTION - Ready-to-Send Template */}
+                    {/* ============================================================ */}
+                    {/* 
+                      This section displays the AI-generated email draft.
+                      The content depends on the match score:
+                      
+                      SCORE ≥ 65: Interview Invitation Email
+                      - Professional enthusiasm tone
+                      - Specific skills matched
+                      - Interview call/video offer
+                      - Urgency level based on score
+                      - Example: "We're impressed with your Python/React expertise..."
+                      
+                      SCORE < 65: Polite Rejection Letter
+                      - Respectful and encouraging tone
+                      - Acknowledges strengths found
+                      - Specifies skill gaps
+                      - Future opportunities message
+                      - Example: "We see your strength in Frontend but need more Backend..."
+                      
+                      WHY GENERATED?
+                      - Saves recruiters 30-60 seconds per candidate
+                      - Consistent, professional tone
+                      - Personalized with actual skills
+                      - Ready to copy, maybe edit slightly
+                      
+                      USER FLOW:
+                      1. Read email draft in textarea
+                      2. Click "Copy" button to copy to clipboard
+                      3. Button shows "Copied!" for 2 seconds
+                      4. Paste into email client
+                      5. Optionally edit before sending
+                    */}
+                    
                     {/* Header with title and copy button */}
                     <div className="flex items-center justify-between mb-4">
                       {/* Section title: identifies this as an email template */}
                       <h3 className="font-semibold">Interview Email</h3>
                       
-                      {/* Copy to Clipboard Button */}
+                      {/* ============================================================ */}
+                      {/* COPY TO CLIPBOARD BUTTON */}
+                      {/* ============================================================ */}
+                      {/* 
+                        Modern, user-friendly copy button with visual feedback.
+                        
+                        BEHAVIOR:
+                        1. Click → Browser's Clipboard API copies email text
+                        2. Button changes color green → "Copied!"
+                        3. After 2 seconds → returns to blue "Copy" state
+                        
+                        WHY ESSENTIAL FEATURE?
+                        - Recruiters paste to Gmail, Outlook, etc.
+                        - Copy button saves clicking, selecting, Ctrl+C
+                        - Visual feedback shows copy succeeded
+                        
+                        CLIPBOARD API:
+                        - Modern replacement for deprecated execCommand
+                        - Secure: browser asks for clipboard permission
+                        - Async: writeText() returns Promise
+                        - Works in https and localhost
+                        
+                        STATE FLOW:
+                        - Initial: copied = false (button shows "Copy")
+                        - After click: copied = true (button shows "Copied!")
+                        - After 2s timeout: copied = false (back to "Copy")
+                        
+                        STYLING:
+                        - Blue when ready: encourages clicking
+                        - Green when done: provides positive feedback
+                        - Click animation: scale 1.05 on hover, 0.95 on press
+                        - Smooth transition: color change over 300ms
+                      */}
                       <motion.button
                         onClick={copyToClipboard}
                         whileHover={{ scale: 1.05 }}
@@ -1057,7 +1124,38 @@ export default function App() {
                       </motion.button>
                     </div>
                     
-                    {/* Email Template Textarea */}
+                    {/* ============================================================ */}
+                    {/* EMAIL TEMPLATE TEXTAREA - Read-Only */}
+                    {/* ============================================================ */}
+                    {/* 
+                      This textarea displays the email draft that the user will copy.
+                      
+                      WHY READ-ONLY?
+                      - Preserves AI-generated quality
+                      - Prevents accidental edits
+                      - Encourages looking before sending
+                      - Forces deliberate copy-paste workflow
+                      
+                      CONTENT VARIES:
+                      - AI's quality varies based on confidence
+                      - High score → enthusiastic, technical language
+                      - Low score → diplomatic, forward-looking language
+                      - Always professional, never rude or sarcastic
+                      
+                      SIZE CHOICES:
+                      - h-32 on mobile (4 lines visible)
+                      - h-40 on desktop (5-6 lines visible)
+                      - Not designed to show full email (it's scrollable)
+                      - User scrolls to see full draft
+                      
+                      STYLING:
+                      - slate-950/50: very dark background (subtle)
+                      - border border-white/10: minimal border (subtle)
+                      - font-mono text-xs: monospace for code-like appearance
+                      - text-slate-300: light gray text for readability
+                      - readOnly: prevents any editing by user
+                      - focus:outline-none: no focus ring (read-only, won't focus)
+                    */}
                     <textarea
                       // Display the AI-generated email draft
                       // Content varies based on match score:
@@ -1071,7 +1169,30 @@ export default function App() {
                     />
                   </motion.div>
 
-                  {/* New Analysis Button - Reset Form */}
+                  {/* ============================================================ */}
+                  {/* NEW ANALYSIS BUTTON - Reset Form */}
+                  {/* ============================================================ */}
+                  {/* 
+                    Allows user to analyze another candidate easily.
+                    Resets all form state to initial clean state.
+                    
+                    WHAT GETS RESET:
+                    - analysisResult: null (clears all results)
+                    - resumeFile: null (clears uploaded file)
+                    - jobDescription: '' (clears job description text)
+                    
+                    WHY RESET ALL?
+                    - Prevents carrying over old data to new candidate
+                    - Forces re-upload of resume (new candidate!)
+                    - Fresh start = fresh analysis
+                    - Better UX than having to manually clear fields
+                    
+                    BUTTON STYLE:
+                    - Neutral styling: doesn't draw attention
+                    - Secondary action: less prominent than "Analyze"
+                    - Hover effect: changes background slightly
+                    - Matches design system (rounded, light border)
+                  */}
                   <motion.button
                     // Reset all form state for a fresh analysis
                     // Clears: analysis result, resume file, job description
