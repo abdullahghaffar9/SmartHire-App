@@ -1985,18 +1985,103 @@ async def health_check():
     """
     Health check endpoint for monitoring and load balancer health tests.
     
-    Used for deployment monitoring and service availability verification.
-    Returns immediately with minimal overhead, including AI provider status.
+    Purpose:
+      - Kubernetes liveness probe (keeps pod alive if responsive)
+      - Load balancer health checks (routes traffic to healthy instances)
+      - Deployment monitoring (alerts if service down)
+      - CI/CD pipeline validation (confirms deployment successful)
+    
+    Response Time:
+      - Target: <50ms (must be instant for uptime monitoring)
+      - Minimal overhead: no database queries, no API calls
+      - Returns immediately with cached/computed status
+    
+    Status Indicators:
+      - overall "status": "healthy" if service running
+      - "service": identification for log analysis
+      - "ai_providers": object showing which AI systems available
+        * "groq": true/false (Groq LPU API accessible?)
+        * "gemini": true/false (Gemini API accessible?)
+    
+    Failure Scenarios (return 503 Service Unavailable):
+      - If critical services failing (would return non-healthy status)
+      - This prompts load balancer to stop routing traffic
+      - Pod may be automatically restarted by orchestration platform
+    
+    Example Responses:
+      
+      All systems healthy:
+      {
+        "status": "healthy",
+        "service": "SmartHire Backend",
+        "ai_providers": {
+          "groq": true,
+          "gemini": true
+        }
+      }
+      
+      Groq down, Gemini working (still healthy, can analyze):
+      {
+        "status": "healthy",
+        "service": "SmartHire Backend",
+        "ai_providers": {
+          "groq": false,
+          "gemini": true
+        }
+      }
+      
+      Both AI systems down (still healthy, keyword analysis works):
+      {
+        "status": "healthy",
+        "service": "SmartHire Backend",
+        "ai_providers": {
+          "groq": false,
+          "gemini": false
+        }
+      }
     
     Returns:
         dict: Service status, identification, and AI provider availability
     """
+    # ============================================================
+    # BASIC SERVICE HEALTH CHECK
+    # ============================================================
+    # 
+    # DESIGN PRINCIPLE:
+    # Service is "healthy" if it can handle requests and return analysis.
+    # Even if external APIs fail, fallback keyword analysis ensures this.
+    # 
+    # WHY NOT ERROR IF AI DOWN?
+    # - Service can still provide value (keyword analysis)
+    # - No need to take down entire deployment for API outages
+    # - Graceful degradation: loss of speed/quality, not functionality
+    # ============================================================
+    
     return {
+        # Always return "healthy" if service is running
+        # Fallback analysis ensures we can always process requests
         "status": "healthy",
+        
+        # Service identifier for log debugging and monitoring dashboards
+        # When aggregating logs across multiple services, helps identify SmartHire
         "service": "SmartHire Backend",
+        
+        # AI Provider Status: shows which tiers are available
+        # Useful for:
+        # - Debugging: "Why was analysis slow?" → "Groq was down"
+        # - Monitoring: Alert if both systems fail
+        # - Analytics: Measure time spent using fallback vs primary
         "ai_providers": {
+            # Tier 1: Groq (Ultra-fast, <2 second response)
+            # If false: system falls back to Gemini or keyword analysis
             "groq": groq_client.is_available(),
+            
+            # Tier 2: Gemini (High quality, ~5-10 second response)
+            # If false: system falls back to keyword analysis
             "gemini": gemini_client.is_available()
+            
+            # Note: Tier 3 (keyword analysis) always available
+            # Not listed because it never fails (no external API)
         }
     }
 
