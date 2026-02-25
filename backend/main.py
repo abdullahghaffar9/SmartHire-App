@@ -1330,14 +1330,39 @@ class GroqAIClient:
         if not self.is_available():
             raise ValueError("Groq API key not configured - cannot perform analysis")
 
+        # ============================================================
+        # PREPARATION: Limit resume size for optimization
+        # ============================================================
+        
         # Limit resume to manage token usage and API costs
         # Groq processes extremely fast but we still apply reasonable limits
         # Safety margin set to 6000 chars to keep within token budget
+        # This is enough for even lengthy resumes (typically 1500-3000 chars)
         resume_clipped = resume_text[:6000] if len(resume_text) > 6000 else resume_text
 
-        # Generous scoring prompt optimized for Llama 3.1 70B model
-        # This prompt is specifically tuned for best results with Llama's strengths
-        # It emphasizes potential, transferable skills, and soft skills
+        # ============================================================
+        # PROMPT ENGINEERING - Tuned for Llama 3.1 70B
+        # ============================================================
+        # 
+        # This prompt is CAREFULLY DESIGNED for best results with Llama 3.1 70B.
+        # Key elements:
+        # 1. Clear role definition: "Technical Recruiter"
+        # 2. Structure: Job requirements first, resume second
+        # 3. Explicit evaluation guidelines (be generous)
+        # 4. JSON-only requirement (no markdown wrapping)
+        # 5. Field specifications (key_strengths: max 5, etc)
+        # 6. Instructions about PDF artifacts (ignore them)
+        # 7. Scoring guardrails (min score logic)
+        #
+        # WHY THESE ELEMENTS?
+        # - Role definition: helps model adopt recruiter perspective
+        # - Generous scoring: recruits should value potential, not perfection
+        # - Transferable skills: Python → backend, Java → systems programming
+        # - Soft skills: communication + teamwork matter for hiring
+        # - JSON format: makes response parsing reliable and consistent
+        # - Scoring guardrails: prevent overly harsh scores for partial fits
+        # ============================================================
+        
         prompt = f"""You are an experienced Technical Recruiter evaluating candidate fit.
 
 JOB REQUIREMENTS:
@@ -1369,16 +1394,40 @@ REQUIRED RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
         try:
             logger.info("Sending analysis request to Groq API (Llama 3.1 70B - Ultra-Fast LPU)")
 
-            # Call Groq API with structured prompt using chat completion format
-            # The system message ensures JSON-only responses for reliable parsing
-            # We use multi-turn format even though we send one user message for consistency
+            # ============================================================
+            # API CALL: Groq Chat Completion Request
+            # ============================================================
+            # 
+            # Using Groq's ultra-fast LPU hardware for inference.
+            # Expected response time: < 2 seconds (compared to 10-30s for other APIs)
+            # 
+            # REQUEST STRUCTURE:
+            # - Model: "llama-3.3-70b-versatile" (Llama 3.3, not 3.1)
+            #   Newer version with improved JSON compliance and reasoning
+            # - Messages: Multi-turn format with system + user roles
+            #   System message frames behavior (JSON-only output)
+            #   User message contains the analysis prompt
+            # - Temperature: 0.7 (balanced between deterministic and creative)
+            #   0.0 = always choose most likely token (boring, but consistent)
+            #   1.0 = random sampling (creative but unpredictable)
+            #   0.7 = good balance for recruiting (some creativity, mostly consistent)
+            # - Max tokens: 1000 (reasonable limit for analysis response)
+            #   Groq's speed makes even longer responses fast
+            # - Top P: 1.0 (nucleus sampling - consider all tokens)
+            #   Works with temperature to control randomness
+            # - Stream: False (need complete response before parsing JSON)
+            # ============================================================
+            
             response = self.client.chat.completions.create(
                 # Llama 3.3 70B model: improved reasoning, better JSON compliance
                 model="llama-3.3-70b-versatile",
+                
+                # Multi-message format for structured AI behavior
                 messages=[
                     {
                         "role": "system",
                         # System message sets AI behavior: return only valid JSON, no markdown
+                        # This helps prevent the common issue of JSON wrapped in ```json...```
                         "content": "You are a helpful recruiter AI that returns only valid JSON responses."
                     },
                     {
@@ -1387,23 +1436,33 @@ REQUIRED RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
                         "content": prompt
                     }
                 ],
-                # Temperature: 0.7 balances consistency with some variability
-                # Lower = more deterministic, Higher = more creative
-                # 0.7 is ideal for technical recruiting analysis
+                
+                # Temperature: controls randomness in token selection
+                # 0.7 is ideal for recruiting (consistent but not robotic)
                 temperature=0.7,
-                # Max tokens: limit response to 1000 tokens for efficiency
-                # Groq's ultra-fast inference makes this quick even with limit
+                
+                # Max tokens: limit response length for efficiency
+                # 1000 tokens ≈ 750 words, plenty for required JSON fields
                 max_tokens=1000,
-                # Top P (nucleus sampling): 1.0 means all tokens are considered
-                # More precise control than temperature alone
+                
+                # Top P (nucleus sampling): 1.0 means all tokens considered
+                # 0.0 = only most likely (greedy)
+                # 1.0 = all tokens possible (stochastic)
+                # 1.0 is standard for Groq (let temperature control randomness)
                 top_p=1,
-                # Disable streaming since we need full response before parsing
+                
+                # Disable streaming: JSON parsing requires complete response
+                # Streaming would give partial JSON (invalid)
                 stream=False
             )
 
+            # ============================================================
+            # EXTRACT RESPONSE CONTENT
+            # ============================================================
+            
             # Extract the analyzed text from response structure
             # response.choices[0] = first (and only) response choice
-            # .message.content = the actual text content
+            # .message.content = the actual text content returned by LLM
             result_text = response.choices[0].message.content
 
             logger.info("Groq AI analysis completed (Ultra-Fast LPU Processing)")
@@ -1412,9 +1471,23 @@ REQUIRED RESPONSE FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
             # Handles potential formatting issues or code blocks in response
             analysis_result = self._parse_json_response(result_text)
 
-            # Apply generous scoring policy: candidates with some demonstrated skills
-            # should score at least 35% even if not perfect fit
-            # This reflects the hiring philosophy: potential matters
+            # ============================================================
+            # POST-PROCESSING: Apply Generous Scoring Guardrails
+            # ============================================================
+            
+            # Apply generous scoring policy to prevent overly harsh scoring
+            # Philosophy: Candidates with ANY demonstrated skills get minimum baseline
+            # Reflects belief in human potential and transferable skills
+            # 
+            # Logic:
+            # - If match_score too low (< 35) BUT has key strengths detected
+            # - Boost score to 35 (out of 100)
+            # - This prevents "reject if not perfect" behavior
+            # 
+            # Example:
+            # - Has Python, React skills but missing DevOps knowledge
+            # - Original score: 25 (harsh)
+            # - Applied guardrail: 35 (more fair)
             if analysis_result.get("match_score", 0) < 35 and len(analysis_result.get("key_strengths", [])) > 0:
                 analysis_result["match_score"] = 35
 
